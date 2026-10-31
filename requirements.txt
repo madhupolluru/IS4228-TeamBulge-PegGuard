@@ -1,0 +1,7 @@
+# Exact versions the app was built and tested with (Python 3.10+). Pinned so the demo machine,
+# Streamlit Community Cloud and CI all run the same code.
+streamlit==1.55.0
+plotly==6.6.0
+pandas==2.3.3
+numpy==1.26.4
+requests==2.32.3

@@ -1,0 +1,321 @@
+{
+  "presets": [
+    {
+      "id": "usdc_2026_09",
+      "group": "issuer",
+      "basis": "reported",
+      "symbol": "USDC",
+      "name": "USDC-style reserves (30 Sep 2026)",
+      "supply_bn": 73.879,
+      "as_of": "2026-09-30",
+      "source": "Circle monthly USDC examination report as of 30 Sep 2026 (dated 26 Oct 2026): $73.879bn USDC in circulation, $73.957bn reserves at fair value. Circle Reserve Fund (USDXX) $62.467bn (T-bills $25.36bn, overnight Treasury repo $36.65bn, cash $1.00bn, settlement -$0.55bn); cash at regulated financial institutions $9.502bn; directly held T-bills $1.758bn; the remaining $0.229bn of the $11.489bn 'other reserve assets' is not itemised and is treated as cash. Fund weighted average maturity 17 days (BlackRock factsheet, Sep 2026). The banks holding the cash are not named; the yield and the maturity of the directly held bills are assumptions.",
+      "description": "Almost entirely a government money market fund (T-bills and overnight repo) plus bank cash. Very short duration: the risk here is bank exposure and how fast the fund can turn into cash, not interest rates.",
+      "redemption": {
+        "direct": true,
+        "fee_bp": 0.0,
+        "min_m": 0.0,
+        "note": "Circle Mint: institutions only, approval-gated and jurisdiction-dependent. No official minimum found; standard redemptions assumed free (an Express rate may apply)."
+      },
+      "lines": [
+        {
+          "name": "Circle Reserve Fund (gov MMF: T-bills + repo)",
+          "asset_class": "mmf_gov",
+          "amount_bn": 62.467,
+          "maturity_years": 0.047,
+          "yield_pct": 3.7,
+          "bank": "BlackRock (fund manager), BNY (custodian)"
+        },
+        {
+          "name": "Cash at regulated financial institutions",
+          "asset_class": "cash_bank",
+          "amount_bn": 9.502,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Directly held T-bills",
+          "asset_class": "tbill",
+          "amount_bn": 1.758,
+          "maturity_years": 0.08,
+          "yield_pct": 3.7
+        },
+        {
+          "name": "Other reserve assets (residual, treated as cash)",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.229,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        }
+      ]
+    },
+    {
+      "id": "usdt_2026q2",
+      "group": "issuer",
+      "basis": "reported",
+      "symbol": "USDT",
+      "name": "USDT-style reserves (Q2 2026)",
+      "supply_bn": 183.642,
+      "as_of": "2026-06-30",
+      "source": "BDO Advisory Services (Milan) ISAE 3000R report on Tether International's financial figures as of 30 Jun 2026, signed 31 Jul 2026: total assets $187.751bn, total liabilities $183.642bn (tokens issued $183.622bn). T-bills $114.961bn (weighted average maturity under 90 days), overnight reverse repo $18.626bn, term reverse repo (under 90 days) $6.993bn, precious metals $18.838bn, bitcoin $5.802bn, secured loans $13.454bn, other investments $5.245bn, public equities $3.761bn, cash and deposits $0.040bn, non-US T-bills $0.022bn, corporate bonds $0.009bn. Yields and the exact bill and repo tenors are assumptions. This is the latest Tether report published as at 30 Oct 2026.",
+      "description": "Mostly T-bills and repo, but about a quarter sits in gold, bitcoin, secured loans and other investments. Over-collateralised by about 2%, which is the buffer that absorbs shocks before the peg is threatened.",
+      "lines": [
+        {
+          "name": "US Treasury bills",
+          "asset_class": "tbill",
+          "amount_bn": 114.961,
+          "maturity_years": 0.2,
+          "yield_pct": 3.7
+        },
+        {
+          "name": "Overnight reverse repo",
+          "asset_class": "repo",
+          "amount_bn": 18.626,
+          "maturity_years": 0.003,
+          "yield_pct": 3.8
+        },
+        {
+          "name": "Term reverse repo (< 90 days)",
+          "asset_class": "repo",
+          "amount_bn": 6.993,
+          "maturity_years": 0.15,
+          "yield_pct": 3.8
+        },
+        {
+          "name": "Gold (precious metals)",
+          "asset_class": "gold",
+          "amount_bn": 18.838,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Secured loans",
+          "asset_class": "secured_loan",
+          "amount_bn": 13.454,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Bitcoin",
+          "asset_class": "crypto",
+          "amount_bn": 5.802,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Other investments",
+          "asset_class": "other",
+          "amount_bn": 5.245,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Public equities",
+          "asset_class": "other",
+          "amount_bn": 3.761,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Cash and bank deposits",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.04,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "Non-US T-bills",
+          "asset_class": "tbill",
+          "amount_bn": 0.022,
+          "maturity_years": 0.25,
+          "yield_pct": 3.0
+        },
+        {
+          "name": "Corporate bonds",
+          "asset_class": "commercial_paper",
+          "amount_bn": 0.009,
+          "maturity_years": 0.5,
+          "yield_pct": 4.5
+        }
+      ],
+      "redemption": {
+        "direct": true,
+        "fee_bp": 10.0,
+        "min_m": 0.1,
+        "note": "tether.to/fees (Oct 2026): KYC-verified accounts only (approval at Tether's discretion, $150 verification fee); minimum redemption $100,000; fee the greater of $1,000 or 0.1%."
+      }
+    },
+    {
+      "id": "xsgd_style",
+      "group": "issuer",
+      "basis": "hypothetical",
+      "symbol": "XSGD",
+      "name": "XSGD-style SGD stablecoin (illustrative reserves)",
+      "supply_bn": 0.00993,
+      "as_of": "Hypothetical",
+      "source": "Supply is real: about S$12.69m (US$9.9m at 0.7815 USD/SGD) of XSGD outstanding on 30 Oct 2026 (DefiLlama). The reserve split is NOT published in a form we could verify (StraitsX's monthly attestations sit behind an email form), so the mix below is an illustration of a reserve built to the MAS single-currency stablecoin rules: cash at two Singapore banks plus MAS bills of 3 months or less, with a 1% buffer. Amounts are in US$ equivalent; rate shocks should be read as SGD rate moves.",
+      "description": "A Singapore-dollar coin of the kind a Singapore payments firm would hold for local settlement. Tiny next to USDT and USDC, so price impact is negligible: the real risks are concentration in two local banks and how fast the bills can be sold.",
+      "redemption": {
+        "direct": true,
+        "fee_bp": 0.0,
+        "min_m": 0.0,
+        "note": "StraitsX holds an MAS Major Payment Institution licence. The MAS SCS framework requires par redemption within 5 business days; StraitsX's own redemption minimum and fee were not found."
+      },
+      "lines": [
+        {
+          "name": "Cash at Singapore bank A",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.0035,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Singapore bank A"
+        },
+        {
+          "name": "Cash at Singapore bank B",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.0025,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Singapore bank B"
+        },
+        {
+          "name": "MAS bills (avg 6 weeks)",
+          "asset_class": "tbill",
+          "amount_bn": 0.00413,
+          "maturity_years": 0.12,
+          "yield_pct": 1.8
+        }
+      ]
+    },
+    {
+      "id": "svb_style",
+      "group": "benchmark",
+      "basis": "hypothetical",
+      "name": "SVB-style duration mismatch (hypothetical)",
+      "supply_bn": 40.0,
+      "as_of": "Hypothetical",
+      "source": "Hypothetical portfolio for teaching. It mirrors the mistake Silicon Valley Bank made: long-dated Treasuries bought when yields were low, funded by money that can leave overnight.",
+      "description": "60% in 10-year notes bought at a 1.8% yield. Fully backed on day 0, but a rate rise quietly erodes the reserves and a run forces the losses to be realised.",
+      "lines": [
+        {
+          "name": "Cash at banks",
+          "asset_class": "cash_bank",
+          "amount_bn": 4.0,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0
+        },
+        {
+          "name": "3-month T-bills",
+          "asset_class": "tbill",
+          "amount_bn": 4.0,
+          "maturity_years": 0.25,
+          "yield_pct": 1.0
+        },
+        {
+          "name": "2-year Treasury notes",
+          "asset_class": "tnote",
+          "amount_bn": 8.0,
+          "maturity_years": 2.0,
+          "yield_pct": 1.5
+        },
+        {
+          "name": "10-year Treasury notes",
+          "asset_class": "tnote",
+          "amount_bn": 24.0,
+          "maturity_years": 10.0,
+          "yield_pct": 1.8
+        }
+      ]
+    },
+    {
+      "id": "usdc_2023_svb",
+      "group": "benchmark",
+      "basis": "reconstructed",
+      "name": "USDC on 10 Mar 2023, SVB weekend (reconstructed)",
+      "supply_bn": 40.0,
+      "as_of": "2023-03-10",
+      "source": "Circle disclosed on 10 Mar 2023 that $3.3bn of roughly $40bn of USDC reserves was held at Silicon Valley Bank (CNBC, 11 Mar 2023). The split between other bank cash and the Circle Reserve Fund is approximate.",
+      "description": "Reconstruction for teaching: the $3.3bn at Silicon Valley Bank is public, but the split of the other reserves is our estimate, not Circle's actual book. About a third of the bank cash was at the bank that failed.",
+      "lines": [
+        {
+          "name": "Cash at Silicon Valley Bank",
+          "asset_class": "cash_bank",
+          "amount_bn": 3.3,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Silicon Valley Bank"
+        },
+        {
+          "name": "Cash at other banks",
+          "asset_class": "cash_bank",
+          "amount_bn": 6.0,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Other banks"
+        },
+        {
+          "name": "Circle Reserve Fund (gov MMF)",
+          "asset_class": "mmf_gov",
+          "amount_bn": 30.7,
+          "maturity_years": 0.08,
+          "yield_pct": 4.5
+        }
+      ],
+      "redemption": {
+        "direct": true,
+        "fee_bp": 0.0,
+        "min_m": 0.0,
+        "note": "Circle Mint redemptions were paused over the weekend of 11-12 Mar 2023 and resumed on Monday 13 Mar."
+      }
+    },
+    {
+      "id": "narrow",
+      "group": "benchmark",
+      "basis": "hypothetical",
+      "name": "Narrow benchmark: cash + short bills (hypothetical)",
+      "supply_bn": 10.0,
+      "as_of": "Hypothetical",
+      "source": "Hypothetical best-practice portfolio built only from assets permitted under both the GENIUS Act and the MAS single-currency stablecoin framework, with a 2% capital buffer.",
+      "description": "Cash spread across banks, overnight repo and bills under 93 days. Use it as the yardstick the other portfolios are compared against.",
+      "lines": [
+        {
+          "name": "Cash at Bank A",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.5,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Bank A"
+        },
+        {
+          "name": "Cash at Bank B",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.5,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Bank B"
+        },
+        {
+          "name": "Cash at Bank C",
+          "asset_class": "cash_bank",
+          "amount_bn": 0.5,
+          "maturity_years": 0.0,
+          "yield_pct": 0.0,
+          "bank": "Bank C"
+        },
+        {
+          "name": "Overnight reverse repo",
+          "asset_class": "repo",
+          "amount_bn": 3.6,
+          "maturity_years": 0.003,
+          "yield_pct": 3.8
+        },
+        {
+          "name": "T-bills (avg 45 days)",
+          "asset_class": "tbill",
+          "amount_bn": 5.1,
+          "maturity_years": 0.12,
+          "yield_pct": 3.7
+        }
+      ]
+    }
+  ]
+}

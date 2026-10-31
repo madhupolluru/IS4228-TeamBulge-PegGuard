@@ -1,0 +1,38 @@
+[theme]
+base = "light"
+primaryColor = "#0D7A6F"
+backgroundColor = "#F5F7FA"
+secondaryBackgroundColor = "#EDF1F6"
+textColor = "#0B1324"
+linkColor = "#0D7A6F"
+borderColor = "#E3E8EF"
+dataframeBorderColor = "#E3E8EF"
+dataframeHeaderBackgroundColor = "#F5F7FA"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+buttonRadius = "0.5rem"
+# Falls back to the system font when offline.
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFontWeights = [700, 650, 600, 600, 600, 600]
+headingFontSizes = ["2.1rem", "1.35rem", "1.1rem"]
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap, monospace"
+metricValueFontSize = "1.55rem"
+metricValueFontWeight = 650
+chartCategoricalColors = ["#0D7A6F", "#2B59C3", "#C77D12", "#7A4FD1", "#C2416B", "#5B6B82"]
+
+[theme.sidebar]
+backgroundColor = "#0B1A2B"
+secondaryBackgroundColor = "#13263B"
+textColor = "#DCE4EE"
+borderColor = "#1E3550"
+primaryColor = "#34C3AE"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
