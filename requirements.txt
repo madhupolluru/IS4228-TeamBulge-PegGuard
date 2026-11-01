@@ -3,6 +3,8 @@
 streamlit==1.55.0
 plotly==6.6.0
 pandas==2.3.3
-numpy==1.26.4
-pyarrow==17.0.0
+# NumPy 2.2 has wheels for Python 3.10-3.13; Python 3.14 needs NumPy 2.3.
+numpy==2.2.6; python_version < "3.14"
+numpy==2.3.4; python_version >= "3.14"
+pyarrow==22.0.0
 requests==2.32.3
