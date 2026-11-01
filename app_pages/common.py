@@ -51,6 +51,23 @@ SC_FIELDS = {
 }
 # The redemption deadline is a policy, not part of a crisis: loading a crisis leaves it alone.
 WAIT_OPTIONS = {0: "Same day", 1: "T+1", 2: "T+2", 3: "T+3", 5: "T+5 (MAS)"}
+# Slider ranges (min, max), shared by the Stress Lab widgets and the share-link reader
+SC_LIMITS = {
+    "sc_rate": (-100.0, 500.0), "sc_run": (0.0, 100.0), "sc_days": (1, 20), "sc_front": (0.0, 0.9),
+    "sc_freeze": (0.0, 100.0), "sc_recovery": (0.0, 100.0), "sc_stress": (0.0, 10.0), "sc_gold": (-50.0, 10.0),
+    "sc_crypto": (-90.0, 0.0), "sc_risk": (-80.0, 10.0), "sc_loan": (0.0, 100.0), "sc_panic": (0.0, 1.0),
+    "sc_twist": (-200.0, 200.0), "sc_impact": (0.0, 3.0), "sc_spill": (0.0, 1.0), "sc_mkt_return": (0.0, 100.0),
+    "sc_mkt_recovery": (0.0, 100.0), "sc_fear": (0.0, 1000.0),
+}
+# Select-slider options (the share-link reader ignores anything else)
+SC_OPTIONS = {
+    "sc_wait": list(WAIT_OPTIONS), "sc_release": list(range(0, 21)), "sc_closed": [0, 1, 2, 3, 4, 5],
+    "sc_signal": ["coverage", "market"], "sc_lag": [0, 1, 2, 3, 5],
+}
+MC_DEFAULT = 300  # Monte Carlo runs
+
+# Treasury Planner widgets: session key -> default (kept alive across pages like the sc_* keys)
+TR_DEFAULTS = {"tr_budget": 50, "tr_days": 2, "tr_direct": True}
 
 # Data basis of each bundled portfolio, so benchmarks are not mistaken for real reserves
 BASIS = {"reported": "Reported", "reconstructed": "Reconstructed", "hypothetical": "Hypothetical"}
@@ -84,18 +101,26 @@ def _read_share_link() -> None:
     for k, default in SC_DEFAULTS.items():
         if k in qp:
             try:
-                st.session_state[k] = type(default)(qp[k])
+                v = type(default)(qp[k])
             except (TypeError, ValueError):
-                pass  # ignore a malformed value rather than failing to load the app
+                continue  # ignore a malformed value rather than failing to load the app
+            if k in SC_LIMITS:
+                lo, hi = SC_LIMITS[k]
+                v = min(max(v, lo), hi)  # out-of-range values would crash the slider
+            elif k in SC_OPTIONS and v not in SC_OPTIONS[k]:
+                continue
+            st.session_state[k] = v
     if "pos" in qp:
         try:
             st.session_state.position_m = max(0.0, float(qp["pos"]))
         except ValueError:
             pass
+    if qp.get("direct") in ("0", "1"):
+        st.session_state.direct_access = qp["direct"] == "1"
 
 
 def share_query() -> dict:
-    # The current coin, scenario and position as URL query parameters (only values that differ from default).
+    # The current coin, scenario, position and direct access as URL query parameters (only non-default values).
     q = {"coin": st.session_state.preset_id}
     for k, default in SC_DEFAULTS.items():
         v = st.session_state.get(k, default)
@@ -103,6 +128,8 @@ def share_query() -> dict:
             q[k] = str(v)
     if position_m() != DEFAULT_POSITION_M:
         q["pos"] = f"{position_m():g}"
+    if not st.session_state.get("direct_access", True):
+        q["direct"] = "0"
     return q
 
 
@@ -121,13 +148,12 @@ def init_state() -> None:
     if pending:  # set by other pages; applied here before the sidebar widget exists
         st.session_state.preset_id = pending
         _load_into_state(pending)
-    for k, v in SC_DEFAULTS.items():
+    for k, v in {**SC_DEFAULTS, **TR_DEFAULTS, "mc_n": MC_DEFAULT}.items():
         # Re-assigning keeps widget values alive when the user switches pages.
         st.session_state[k] = st.session_state.get(k, v)
     st.session_state.setdefault("live_data", False)
     st.session_state.setdefault("position_m", DEFAULT_POSITION_M)
     st.session_state.setdefault("direct_access", True)
-    st.session_state.setdefault("mc_n", 300)
 
 
 def on_preset_change() -> None:
@@ -259,8 +285,8 @@ def sidebar() -> None:
             status = "Hypothetical teaching portfolio"
         st.markdown(
             f'<div class="pg-side-card">'
-            f'<div class="row"><span class="l">Tokens outstanding</span><span class="r">${supply:,.2f}bn</span></div>'
-            f'<div class="row"><span class="l">Reserves</span><span class="r">${reserves:,.2f}bn</span></div>'
+            f'<div class="row"><span class="l">Tokens outstanding</span><span class="r">{fmt_bn(supply)}</span></div>'
+            f'<div class="row"><span class="l">Reserves</span><span class="r">{fmt_bn(reserves)}</span></div>'
             f'<div class="row"><span class="l">Buffer above par</span><span class="r">{buffer}</span></div>'
             f'<div class="row"><span class="l">{status}</span></div></div>', unsafe_allow_html=True)
         st.markdown('<div class="pg-tag">Your holding</div>', unsafe_allow_html=True)

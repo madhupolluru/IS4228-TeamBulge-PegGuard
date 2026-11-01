@@ -20,28 +20,50 @@ names = dict(zip(info["id"], info["name"]))
 # short labels: the symbol for issuers, the name without its bracketed note for benchmarks
 short = {r.id: (r.symbol if isinstance(r.symbol, str) and r.symbol else r.name.split(" (")[0])
          for r in info.itertuples()}
-default_mix = {"usdc_2026_09": 60.0, "usdt_2026q2": 30.0, "xsgd_style": 10.0}
+# US$95m treasury; the SGD coin is kept small because its whole supply is only about US$10m
+default_mix = {"usdc_2026_09": 60.0, "usdt_2026q2": 30.0, "xsgd_style": 5.0}
 
 if "treasury_mix" not in st.session_state:
     st.session_state.treasury_mix = pd.DataFrame(
         [{"Coin": short[k], "Holding ($m)": v} for k, v in default_mix.items() if k in short])
+st.session_state.setdefault("treasury_version", 0)
+editor_key = f"treasury_editor_{st.session_state.treasury_version}"
+
+
+def save_mix(key: str) -> None:
+    # Apply the editor's changes to the saved holdings, so they survive a page switch.
+    # A new editor key then shows the saved table (same idea as the Stress Lab's reserve editor).
+    ed = st.session_state[key]
+    df = st.session_state.treasury_mix.copy()
+    for i, row in ed.get("edited_rows", {}).items():
+        for col, v in row.items():
+            df.loc[df.index[int(i)], col] = v
+    df = df.drop(df.index[ed.get("deleted_rows", [])])
+    if ed.get("added_rows"):
+        df = pd.concat([df, pd.DataFrame(ed["added_rows"], columns=df.columns)], ignore_index=True)
+    st.session_state.treasury_mix = df.reset_index(drop=True)
+    st.session_state.treasury_version += 1
+
 
 left, right = st.columns([1.3, 1])
 with left:
     section("What you hold", "Step 1")
     mix = st.data_editor(
-        st.session_state.treasury_mix, num_rows="dynamic", hide_index=True, width="stretch", key="treasury_editor",
+        st.session_state.treasury_mix, num_rows="dynamic", hide_index=True, width="stretch", key=editor_key,
+        on_change=save_mix, args=(editor_key,),
         column_config={"Coin": st.column_config.SelectboxColumn(options=list(short.values()), required=True),
                        "Holding ($m)": st.column_config.NumberColumn(min_value=0.0, step=5.0, format="%.1f")})
 with right:
     section("Your limits", "Step 2")
-    budget_bp = st.slider("Loss limit (bp of the treasury)", 5, 500, 50, step=5,
+    # keyed (defaults in common.TR_DEFAULTS) so the limits survive a page switch
+    budget_bp = st.slider("Loss limit (bp of the treasury)", 5, 500, step=5, key="tr_budget",
                           help="Your risk budget. 50bp on a $100m treasury = $0.5m.")
-    need_days = st.select_slider("Cash needed within", options=[0, 1, 2, 3, 5], value=2,
+    need_days = st.select_slider("Cash needed within", options=[0, 1, 2, 3, 5], key="tr_days",
                                  format_func=lambda d: "Same day" if d == 0 else f"T+{d}",
                                  help="How quickly you must be able to turn the stablecoins back into cash.")
-    direct = st.toggle("Direct redemption accounts", value=True,
-                       help="Off = every exit is a sale on the market at the model's price.")
+    direct = st.toggle("Direct redemption accounts", key="tr_direct",
+                       help="Off = every exit is a sale on the market at the model's price. Separate from the "
+                            "sidebar setting, which applies to your single position in the Stress Lab.")
 
 ids = {v: k for k, v in short.items()}
 holdings = [Holding(ids[r["Coin"]], float(r["Holding ($m)"] or 0)) for _, r in pd.DataFrame(mix).iterrows()

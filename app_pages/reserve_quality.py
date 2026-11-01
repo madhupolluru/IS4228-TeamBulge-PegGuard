@@ -46,7 +46,8 @@ k[1].metric("Buffer above par", fmt_bp(reserves / supply - 1) if supply else "n/
 k[2].metric("Loss per +100bp", f"{rp['loss_per_100bp_pct'] * 100:,.0f}bp",
             help=f"About {fmt_bn(rp['dv01_bn'] * 100)} of reserve value lost if all yields rise 1 percentage point")
 k[3].metric("Modified duration", f"{rp['duration']:.2f} yrs",
-            help=f"Weighted average maturity of rate-sensitive assets: {rp['wam_days']:,.0f} days")
+            help=f"Averaged over all reserves, with cash, gold, crypto and other assets that do not reprice "
+                 f"counted as zero. Average maturity on the same basis: {rp['wam_days']:,.0f} days")
 k[4].metric("Cash in 5 days", f"{rp['day5_capacity_share']:.0%}",
             help="Share of tokens that could be paid within 5 business days (the MAS redemption window)")
 
@@ -65,10 +66,11 @@ with c2:
         if kind == "none":
             continue
         d = modified_duration("zero" if kind in ("zero", "mmf") else "coupon", l.maturity_years, l.yield_pct / 100)
-        rows.append({"Holding": l.name, "$bn": l.amount_bn, "Duration": d, "+100bp loss": l.amount_bn * d / 100})
+        rows.append({"Holding": l.name, "Amount": l.amount_bn, "Duration": d, "+100bp loss": l.amount_bn * d / 100})
     if rows:
-        st.dataframe(pd.DataFrame(rows).style.format({"$bn": "{:,.2f}", "Duration": "{:.2f}y",
-                                                      "+100bp loss": "${:,.3f}bn"}),
+        # fmt_bn so small coins show $m instead of $0.00bn
+        st.dataframe(pd.DataFrame(rows).style.format({"Amount": fmt_bn, "Duration": "{:.2f}y",
+                                                      "+100bp loss": fmt_bn}),
                      width="stretch", hide_index=True, height=35 * (len(rows) + 1) + 3,
                      column_config={"Holding": st.column_config.TextColumn(width="medium")})
         st.caption("Cash, gold, crypto, equities and loans do not reprice with interest rates and are left out.")
@@ -85,7 +87,8 @@ with q1:
     if conc.empty:
         st.caption("No bank cash in this portfolio.")
     else:
-        st.dataframe(conc.style.format({"Amount ($bn)": "{:,.3f}", "Share of reserves": "{:.1%}"}),
+        st.dataframe(conc.rename(columns={"Amount ($bn)": "Amount"})
+                     .style.format({"Amount": fmt_bn, "Share of reserves": "{:.1%}"}),
                      hide_index=True, width="stretch", height=35 * (len(conc) + 1) + 3)
         if (conc["Bank"] == "Unspecified").all():
             st.caption("The issuer does not name its banks. Add names in the Stress Lab's reserve editor to test a "
@@ -133,7 +136,7 @@ with st.expander("Rules and holding-by-holding detail", icon=":material/list:"):
         det["Eligible"] = det["Eligible"].map({True: "Yes", False: "No"})
         with tab:
             st.caption(res["rule"])
-            st.dataframe(det.rename(columns={"Amount ($bn)": "$bn"}).style.format({"$bn": "{:,.3f}"}),
+            st.dataframe(det.rename(columns={"Amount ($bn)": "Amount"}).style.format({"Amount": fmt_bn}),
                          width="stretch", hide_index=True,
                          column_config={"Holding": st.column_config.TextColumn(width="medium"),
                                         "Reason": st.column_config.TextColumn(width="medium")})

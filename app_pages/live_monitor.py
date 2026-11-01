@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from app_pages.common import PEG_ALERT_BP, SUPPLY_ALERT_PCT, esc, request_preset, section
+from app_pages.common import PEG_ALERT_BP, SC_DEFAULTS, SUPPLY_ALERT_PCT, esc, request_preset, section
 from pegguard import charts
 from pegguard.analysis import projected_run
 from pegguard.data_sources import load_price_history, load_stablecoins
@@ -130,8 +130,10 @@ def _body() -> None:
 
 def _stress_outflow(preset_id: str, run_pct: float) -> None:
     request_preset(preset_id)
+    # start from the defaults so nothing from an earlier crisis leaks in; the deadline is a policy, so it stays
+    st.session_state.update({k: v for k, v in SC_DEFAULTS.items() if k != "sc_wait"})
     st.session_state.update(sc_run=float(min(100.0, max(5.0, round(run_pct / 5) * 5))), sc_days=5, sc_front=0.0,
-                            sc_rate=0.0, sc_freeze=0.0, sc_crypto=0.0, sc_gold=0.0, sc_risk=0.0, sc_loan=0.0)
+                            sc_rate=0.0)
     st.switch_page("app_pages/stress_lab.py")
 
 

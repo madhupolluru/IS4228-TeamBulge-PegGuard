@@ -6,12 +6,12 @@ from dataclasses import replace
 import pandas as pd
 import streamlit as st
 
-from app_pages.common import (SC_DEFAULTS, WAIT_OPTIONS, apply_scenario, asset_class_labels, basis_badge,
-                              basis_notice, changed_count, current_portfolio, current_scenario, esc, fmt_bn, fmt_bp,
-                              fmt_cov, fmt_m, fmt_token, holder_access, lines_from_key, matching_crisis, narrative,
-                              on_preset_change, page_header, portfolio_key, position_m, scenario_chips,
-                              scenario_library_options, section, share_query, show_issues, steps_list, verdict_banner,
-                              verdict_chip, wait_label)
+from app_pages.common import (MC_DEFAULT, SC_DEFAULTS, SC_LIMITS, SC_OPTIONS, apply_scenario, asset_class_labels,
+                              basis_badge, basis_notice, changed_count, current_portfolio, current_scenario, esc,
+                              fmt_bn, fmt_bp, fmt_cov, fmt_m, fmt_token, holder_access, lines_from_key,
+                              matching_crisis, narrative, on_preset_change, page_header, portfolio_key, position_m,
+                              scenario_chips, scenario_library_options, section, share_query, show_issues, steps_list,
+                              verdict_banner, verdict_chip, wait_label)
 from pegguard import charts
 from pegguard.analysis import (breaking_point_grid, monte_carlo, position_outcome, stress_sensitivity,
                                survival_frontier, tornado)
@@ -176,12 +176,13 @@ st.caption(esc(CRISIS_NOTES.get(short_name(picked), "") if picked in lib
 
 # the four main levers
 c1, c2, c3, c4 = st.columns(4)
-c1.slider("Rate shock (bp)", -100.0, 500.0, step=25.0, key="sc_rate", format="%.0f",
+c1.slider("Rate shock (bp)", *SC_LIMITS["sc_rate"], step=25.0, key="sc_rate", format="%.0f",
           help="Instant rise in yields. Reprices bills and notes (Week 3 bond maths).")
-c2.slider("Run size (% of tokens)", 0.0, 100.0, step=5.0, key="sc_run", format="%.0f%%",
+c2.slider("Run size (% of tokens)", *SC_LIMITS["sc_run"], step=5.0, key="sc_run", format="%.0f%%",
           help="Share of all tokens whose holders ask to redeem during the run.")
-c3.slider("Run length (days)", 1, 20, key="sc_days", help="Business days over which new redemption requests arrive.")
-c4.select_slider("Redemption deadline", options=list(WAIT_OPTIONS), format_func=wait_label, key="sc_wait",
+c3.slider("Run length (days)", *SC_LIMITS["sc_days"], key="sc_days",
+          help="Business days over which new redemption requests arrive.")
+c4.select_slider("Redemption deadline", options=SC_OPTIONS["sc_wait"], format_func=wait_label, key="sc_wait",
                  help="How long a holder may wait for their $1 before the request counts as late. MAS requires par "
                       "redemption within 5 business days.")
 
@@ -189,25 +190,29 @@ with st.expander(group_label("More shocks: bank failure, price falls, fire sales
                  icon=":material/tune:"):
     a1, a2, a3 = st.columns(3)
     with a1:
-        st.slider("Bank cash frozen in a bank failure (%)", 0.0, 100.0, step=5.0, format="%.0f", key="sc_freeze",
+        st.slider("Bank cash frozen in a bank failure (%)", *SC_LIMITS["sc_freeze"], step=5.0, format="%.0f",
+                  key="sc_freeze",
                   help="Share of the reserves' bank deposits stuck at a failed bank (USDC had $3.3bn at SVB).")
-        st.slider("Expected recovery on frozen cash (%)", 0.0, 100.0, step=5.0, format="%.0f", key="sc_recovery",
+        st.slider("Expected recovery on frozen cash (%)", *SC_LIMITS["sc_recovery"], step=5.0, format="%.0f",
+                  key="sc_recovery",
                   help="The unrecovered share is a permanent loss.")
-        st.select_slider("Frozen cash usable again on", options=list(range(0, 21)),
+        st.select_slider("Frozen cash usable again on", options=SC_OPTIONS["sc_release"],
                          format_func=lambda d: "Never" if d == 0 else f"Day {d}", key="sc_release",
                          help="When the recovered share can pay redemptions again. The SVB deposits were released "
                               "after a weekend.")
     with a2:
-        st.slider("Bitcoin / crypto price change (%)", -90.0, 0.0, step=5.0, format="%.0f", key="sc_crypto")
-        st.slider("Gold price change (%)", -50.0, 10.0, step=5.0, format="%.0f", key="sc_gold")
-        st.slider("Equities / other investments change (%)", -80.0, 10.0, step=5.0, format="%.0f", key="sc_risk")
-        st.slider("Credit loss on secured loans (%)", 0.0, 100.0, step=5.0, format="%.0f", key="sc_loan")
+        st.slider("Bitcoin / crypto price change (%)", *SC_LIMITS["sc_crypto"], step=5.0, format="%.0f",
+                  key="sc_crypto")
+        st.slider("Gold price change (%)", *SC_LIMITS["sc_gold"], step=5.0, format="%.0f", key="sc_gold")
+        st.slider("Equities / other investments change (%)", *SC_LIMITS["sc_risk"], step=5.0, format="%.0f",
+                  key="sc_risk")
+        st.slider("Credit loss on secured loans (%)", *SC_LIMITS["sc_loan"], step=5.0, format="%.0f", key="sc_loan")
     with a3:
-        st.slider("How front-loaded the run is", 0.0, 0.9, step=0.05, key="sc_front",
+        st.slider("How front-loaded the run is", *SC_LIMITS["sc_front"], step=0.05, key="sc_front",
                   help="0 = spread evenly; 0.5 = each day's requests are half the previous day's.")
-        st.slider("Fire-sale stress multiplier", 0.0, 10.0, step=0.5, key="sc_stress",
+        st.slider("Fire-sale stress multiplier", *SC_LIMITS["sc_stress"], step=0.5, key="sc_stress",
                   help="Scales every fire-sale discount. 1 = orderly market, 3+ = crisis.")
-        st.slider("Panic feedback", 0.0, 1.0, step=0.05, key="sc_panic",
+        st.slider("Panic feedback", *SC_LIMITS["sc_panic"], step=0.05, key="sc_panic",
                   help="Extra redemptions for each 1pp that reserves fall below par. 0.2 = +20% per 1pp.")
 
 # only offer banks that actually appear in the portfolio
@@ -219,9 +224,10 @@ with st.expander(group_label("Advanced: market structure, timing and behaviour",
                  icon=":material/stacked_line_chart:"):
     b1, b2, b3 = st.columns(3)
     with b1:
-        st.slider("Yield-curve twist at 10y (bp)", -200.0, 200.0, step=25.0, format="%.0f", key="sc_twist",
+        st.slider("Yield-curve twist at 10y (bp)", *SC_LIMITS["sc_twist"], step=25.0, format="%.0f",
+                  key="sc_twist",
                   help="Added to the rate shock at 10 years, fading to zero at 3 months. Positive = steepener.")
-        st.select_slider("Redemption window closed for", options=[0, 1, 2, 3, 4, 5],
+        st.select_slider("Redemption window closed for", options=SC_OPTIONS["sc_closed"],
                          format_func=lambda d: "Open" if d == 0 else f"First {d} day(s)", key="sc_closed",
                          help="A weekend or bank holiday: requests queue but nothing is paid. USDC/SVB happened over "
                               "a weekend.")
@@ -230,22 +236,24 @@ with st.expander(group_label("Advanced: market structure, timing and behaviour",
                      help="With a named bank, the freeze % applies only to cash at that bank. Name banks in the "
                           "reserve editor.")
     with b2:
-        st.slider("Price impact of large sales", 0.0, 3.0, step=0.25, key="sc_impact",
+        st.slider("Price impact of large sales", *SC_LIMITS["sc_impact"], step=0.25, key="sc_impact",
                   help="How much the discount grows when a lot is sold in one day. 0 = every sale pays the same "
                        "discount.")
-        st.slider("Price drop on unsold holdings (spillover)", 0.0, 1.0, step=0.1, key="sc_spill",
+        st.slider("Price drop on unsold holdings (spillover)", *SC_LIMITS["sc_spill"], step=0.1, key="sc_spill",
                   help="Share of the day's price impact that also marks down what was not sold (UK gilts 2022).")
-        st.select_slider("Holders react to", options=["coverage", "market"], key="sc_signal",
+        st.select_slider("Holders react to", options=SC_OPTIONS["sc_signal"], key="sc_signal",
                          format_func={"coverage": "True reserves", "market": "Market price"}.get,
                          help="What drives panic: the true reserves (only insiders know) or the market price.")
-        st.select_slider("Information lag (days)", options=[0, 1, 2, 3, 5], key="sc_lag",
+        st.select_slider("Information lag (days)", options=SC_OPTIONS["sc_lag"], key="sc_lag",
                          help="Holders see the signal this many days late, like a monthly attestation.")
     with b3:
-        st.slider("Return a market buyer demands (% a year)", 0.0, 100.0, step=5.0, format="%.0f", key="sc_mkt_return",
+        st.slider("Return a market buyer demands (% a year)", *SC_LIMITS["sc_mkt_return"], step=5.0,
+                  format="%.0f", key="sc_mkt_return",
                   help="Discount for having to wait to redeem a token bought on the market.")
-        st.slider("Market's guess of recovery on frozen cash (%)", 0.0, 100.0, step=5.0, format="%.0f", key="sc_mkt_recovery",
+        st.slider("Market's guess of recovery on frozen cash (%)", *SC_LIMITS["sc_mkt_recovery"],
+                  step=5.0, format="%.0f", key="sc_mkt_recovery",
                   help="Until frozen cash is released, the market values it at this recovery.")
-        st.slider("Fear premium (bp)", 0.0, 1000.0, step=25.0, format="%.0f", key="sc_fear",
+        st.slider("Fear premium (bp)", *SC_LIMITS["sc_fear"], step=25.0, format="%.0f", key="sc_fear",
                   help="Extra market discount while the coin is in distress. The back-tests suggest about 350bp.")
     if changed_count(SHOCK_KEYS + ADVANCED_KEYS):
         st.button("Reset all extra settings", icon=":material/restart_alt:", on_click=reset_extra_settings)
@@ -270,7 +278,7 @@ sc_key = {**sc.to_dict(), "name": "lab"}  # same name every time, so the cache i
 pkey = portfolio_key()
 sens = cached_sensitivity(pkey, sc_key)
 tor = cached_tornado(pkey, sc_key)
-mc_df, mc = cached_monte_carlo(pkey, sc_key, int(st.session_state.get("mc_n", 300)))
+mc_df, mc = cached_monte_carlo(pkey, sc_key, int(st.session_state.get("mc_n", MC_DEFAULT)))
 
 deadline = wait_label(s["max_wait_days"])
 deadline_txt = "the same-day deadline" if s["max_wait_days"] == 0 else f"the {deadline} deadline"
@@ -409,7 +417,10 @@ with tab_run:
     x[3].download_button("Summary CSV", summary_row.to_csv(index=False), file_name="pegguard_scenario_summary.csv",
                          mime="text/csv", icon=":material/download:", width="stretch",
                          help="Settings, results and your position in one row")
-    st.caption("To share this exact scenario, copy the address bar: it holds the coin, every slider and your position.")
+    st.caption("To share this exact scenario, copy the address bar: it holds the coin, every slider, your position "
+               "and whether you can redeem directly with the issuer."
+               + (" It cannot hold your reserve edits: whoever opens it sees the coin's published reserves."
+                  if meta.get("edited") else ""))
 
     with st.expander("Day-by-day table", icon=":material/table:"):
         show = result.daily.rename(columns={
