@@ -13,6 +13,7 @@
       "redemption": {
         "direct": true,
         "fee_bp": 0.0,
+        "fee_min_m": 0.0,
         "min_m": 0.0,
         "note": "Circle Mint: institutions only, approval-gated and jurisdiction-dependent. No official minimum found; standard redemptions assumed free (an Express rate may apply)."
       },
@@ -140,6 +141,7 @@
       "redemption": {
         "direct": true,
         "fee_bp": 10.0,
+        "fee_min_m": 0.001,
         "min_m": 0.1,
         "note": "tether.to/fees (Oct 2026): KYC-verified accounts only (approval at Tether's discretion, $150 verification fee); minimum redemption $100,000; fee the greater of $1,000 or 0.1%."
       }
@@ -150,13 +152,14 @@
       "basis": "hypothetical",
       "symbol": "XSGD",
       "name": "XSGD-style SGD stablecoin (illustrative reserves)",
-      "supply_bn": 0.00993,
+      "supply_bn": 0.009917,
       "as_of": "Hypothetical",
-      "source": "Supply is real: about S$12.69m (US$9.9m at 0.7815 USD/SGD) of XSGD outstanding on 30 Oct 2026 (DefiLlama). The reserve split is NOT published in a form we could verify (StraitsX's monthly attestations sit behind an email form), so the mix below is an illustration of a reserve built to the MAS single-currency stablecoin rules: cash at two Singapore banks plus MAS bills of 3 months or less, with a 1% buffer. Amounts are in US$ equivalent; rate shocks should be read as SGD rate moves.",
+      "source": "Supply is real: about S$12.69m (US$9.917m at 0.7815 USD/SGD) of XSGD outstanding on 30 Oct 2026 (DefiLlama). The reserve split is NOT published in a form we could verify (StraitsX's monthly attestations sit behind an email form), so the mix below is an illustration of a reserve built to the MAS single-currency stablecoin rules: cash at two Singapore banks plus MAS bills of 3 months or less, with a buffer of about 2% (US$10.13m of reserves). Amounts are in US$ equivalent; rate shocks should be read as SGD rate moves.",
       "description": "A Singapore-dollar coin of the kind a Singapore payments firm would hold for local settlement. Tiny next to USDT and USDC, so price impact is negligible: the real risks are concentration in two local banks and how fast the bills can be sold.",
       "redemption": {
         "direct": true,
         "fee_bp": 0.0,
+        "fee_min_m": 0.0,
         "min_m": 0.0,
         "note": "StraitsX holds an MAS Major Payment Institution licence. The MAS SCS framework requires par redemption within 5 business days; StraitsX's own redemption minimum and fee were not found."
       },
@@ -263,6 +266,7 @@
       "redemption": {
         "direct": true,
         "fee_bp": 0.0,
+        "fee_min_m": 0.0,
         "min_m": 0.0,
         "note": "Circle Mint redemptions were paused over the weekend of 11-12 Mar 2023 and resumed on Monday 13 Mar."
       }

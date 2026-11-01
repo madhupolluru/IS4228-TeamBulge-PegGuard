@@ -71,7 +71,8 @@ def _usdt_2022() -> Event:
 def _usdc_2023() -> Event:
     p = load_preset("usdc_2023_svb")
     # Supply (DefiLlama): 43.18 (10 Mar), 42.20 (11), 40.66 (12), 40.47 (13), 39.08 (14 Mar 2023).
-    path = _pct([0.98, 1.54, 0.19, 1.39], 43.18)
+    # as a share of the preset's own supply, so the dollar flows are the observed ones
+    path = _pct([0.98, 1.54, 0.19, 1.39], p.supply_bn)
     sc = Scenario(name="USDC March 2023", daily_requests_pct=path, closed_days=2, bank_freeze_pct=100,
                   failed_bank="Silicon Valley Bank", frozen_recovery_pct=100, frozen_release_day=3,
                   max_wait_days=0, market_frozen_recovery_pct=0, market_required_return_pct=20)
@@ -134,7 +135,8 @@ def _busd_2023() -> Event:
         ReserveLine("Overnight Treasury reverse repo", "repo", supply * shares["repo"] / total, 0.003, 4.5),
     ]
     # Supply (DefiLlama): 16.17 (13 Feb), 13.26 (20 Feb), 10.65 (28 Feb), 7.63 (31 Mar 2023).
-    path = _pct([2.91 / 5] * 5 + [2.61 / 6] * 6 + [3.02 / 22] * 22, supply)
+    # Business days: 5 to 20 Feb (Presidents Day off), 6 to 28 Feb, 23 in March.
+    path = _pct([2.91 / 5] * 5 + [2.61 / 6] * 6 + [3.02 / 23] * 23, supply)
     sc = Scenario(name="BUSD Feb 2023", daily_requests_pct=path, max_wait_days=1, stress_multiplier=1.0,
                   market_required_return_pct=20)
     return Event(

@@ -244,8 +244,13 @@ def exit_timing(daily: pd.DataFrame) -> tuple[int | None, float]:
         return None, float("nan")
     first = float(run["new_requests"].iloc[0])
     if first <= 1e-12:
-        # Nobody else is redeeming: paid on day 1 if anything can be sold that day.
-        return (1, 1.0) if float(daily["liquid_next_day"].iloc[0]) > 0 else (None, 0.0)
+        # Nobody else is redeeming: paid on the first day the window is open, if anything can be sold that day.
+        open_days = run[run["open"].astype(bool)] if "open" in run else run
+        if open_days.empty:
+            return None, 0.0
+        day = int(open_days["day"].iloc[0])
+        before = daily.loc[daily["day"] == day - 1, "liquid_next_day"]
+        return (day, 1.0) if len(before) and float(before.iloc[0]) > 0 else (None, 0.0)
     cum_paid = run["paid"].cumsum().to_numpy()
     done = np.nonzero(cum_paid >= first * (1 - 1e-9))[0]
     day_full = int(run["day"].iloc[done[0]]) if len(done) else None
@@ -255,15 +260,17 @@ def exit_timing(daily: pd.DataFrame) -> tuple[int | None, float]:
 def position_outcome(summary: dict, daily: pd.DataFrame, position: float, access: dict | None = None) -> dict:
     # What a stress run means for one holder. Three ways out:
     # hold (marked at the worst value per token), redeem with the issuer on day 1 (if they have an account and
-    # are above the minimum, less the fee), or sell on the market at the model's price.
-    access = {"direct": True, "fee_bp": 0.0, "min_m": 0.0, **(access or {})}
+    # are above the minimum, less the fee: the greater of fee_bp and fee_min_m), or sell on the market at the
+    # model's price.
+    access = {"direct": True, "fee_bp": 0.0, "min_m": 0.0, "fee_min_m": 0.0, **(access or {})}
     worst = summary["min_token_value"]
     haircut = 0.0 if not np.isfinite(worst) else max(0.0, 1.0 - worst)
     day_full, share = exit_timing(daily)
     wait = summary.get("max_wait_days", 0)
     closed = summary.get("closed_days", 0)
     can_redeem = bool(access["direct"]) and position >= float(access["min_m"]) - 1e-12
-    fee = max(float(access["fee_bp"]), 0.0) / 10_000
+    fee_m = max(position * max(float(access["fee_bp"]), 0.0) / 10_000, max(float(access["fee_min_m"]), 0.0))
+    fee = min(fee_m / position, 1.0) if position > 0 else 0.0  # as a share of the position
     prices = daily["market_price"] if "market_price" in daily else pd.Series([1.0])
     now_price = float(prices.iloc[0]) if prices.notna().any() else float("nan")
     low_price = float(prices.min()) if prices.notna().any() else float("nan")
@@ -372,7 +379,8 @@ def monte_carlo(lines: list[ReserveLine], supply: float, base: Scenario, n: int 
     # really is, how big fire-sale discounts and price impact are, how large the run gets and (if a bank failed)
     # how much is recovered. The result is how often this scenario breaks across plausible assumption sets.
     rng = np.random.default_rng(seed)
-    keys = sorted({l.asset_class for l in lines})
+    # cash and overnight repo are always fully available, so their liquidity is not drawn (as in the tornado)
+    keys = sorted(k for k in {l.asset_class for l in lines} if ASSET_CLASSES[k].daily_liquidity < 1.0)
     rows = []
     for _ in range(int(n)):
         sc = replace(
@@ -381,7 +389,8 @@ def monte_carlo(lines: list[ReserveLine], supply: float, base: Scenario, n: int 
             price_impact=float(rng.uniform(0.5, 1.5)) * max(base.price_impact, 0.0),
             spillover=float(rng.uniform(0.0, 1.0)),
             redemption_pct=min(100.0, base.redemption_pct * float(rng.lognormal(0.0, 0.25))),
-            class_liquidity={k: float(np.clip(rng.lognormal(0.0, 0.35), 0.2, 3.0)) for k in keys},
+            class_liquidity={**base.class_liquidity,
+                             **{k: float(np.clip(rng.lognormal(0.0, 0.35), 0.2, 3.0)) for k in keys}},
             frozen_recovery_pct=(float(np.clip(base.frozen_recovery_pct + rng.uniform(-30, 30), 0, 100))
                                  if base.bank_freeze_pct > 0 else base.frozen_recovery_pct),
         )

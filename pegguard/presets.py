@@ -51,13 +51,14 @@ def all_presets() -> list[Portfolio]:
     return [load_preset(i) for i in preset_ids()]
 
 
-DEFAULT_TERMS = {"direct": True, "fee_bp": 0.0, "min_m": 0.0, "note": "No published terms; free redemption assumed."}
+DEFAULT_TERMS = {"direct": True, "fee_bp": 0.0, "fee_min_m": 0.0, "min_m": 0.0,
+                 "note": "No published terms; free redemption assumed."}
 
 
 def redemption_terms(preset_id: str) -> dict:
-    # How a holder can redeem this coin with the issuer: {"direct", "fee_bp", "min_m", "note"}.
+    # How a holder can redeem this coin with the issuer: {"direct", "fee_bp", "fee_min_m", "min_m", "note"}.
     # `direct` is whether an institutional treasury can open a redemption account at all; `min_m` is the
-    # smallest redemption in $m. Presets without published terms get free, unrestricted redemption.
+    # smallest redemption in $m; the fee is the greater of `fee_bp` and `fee_min_m` (in $m). Presets without published terms get free, unrestricted redemption.
     for p in _raw():
         if p["id"] == preset_id:
             return {**DEFAULT_TERMS, **p.get("redemption", {})}

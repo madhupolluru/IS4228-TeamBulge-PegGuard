@@ -13,7 +13,20 @@ from .engine import Scenario
 
 
 def _bn(x: float) -> str:
-    return "n/a" if x is None or pd.isna(x) else f"${x:,.2f}bn"
+    # amounts under $1bn in $m, so small coins never read "$0.00bn" (as fmt_bn in the app)
+    if x is None or pd.isna(x):
+        return "n/a"
+    if abs(x) < 5e-7:
+        return "$0"
+    return f"${x * 1000:,.1f}m" if abs(x) < 1 else f"${x:,.2f}bn"
+
+
+def _as_of(value) -> str:
+    # ", as of <date>" only when the preset date really is a date (hypothetical presets have none)
+    try:
+        return f", as of {date.fromisoformat(str(value)).isoformat()}"
+    except ValueError:
+        return ""
 
 
 def _m(x: float) -> str:
@@ -65,7 +78,7 @@ def build_memo(meta: dict, sc: Scenario, summary: dict, position: dict, sensitiv
         ("Lowest modelled market price", _tok(s.get("min_market_price"))),
         ("Total losses", _bn(s["total_loss"])),
         ("Redemptions requested / paid", f"{_bn(s['requested'])} / {_bn(s['paid'])}"),
-        ("Paid late", _bn(s["late_amount"]) + (f" (from day {s['first_breach_day']})" if s["first_breach_day"] else "")),
+        ("Paid late (still unpaid at the deadline)", _bn(s["late_amount"]) + (f" (from day {s['first_breach_day']})" if s["first_breach_day"] else "")),
         ("Unmet at end", _bn(s["unmet"])),
     ]
     pos = [
@@ -80,7 +93,7 @@ def build_memo(meta: dict, sc: Scenario, summary: dict, position: dict, sensitiv
         ("Preferred route", "redeem with the issuer" if position["best_route"] == "redeem" else "sell on the market"),
     ]
     basis = meta.get("basis", "hypothetical")
-    data = [("Reserve data", f"{basis.title()}, as of {meta.get('as_of', 'n/a')}"
+    data = [("Reserve data", f"{basis.title()}{_as_of(meta.get('as_of'))}"
                              + (" (edited by the user)" if meta.get("edited") else "")),
             ("Source", meta.get("source", ""))]
 
@@ -106,10 +119,10 @@ def build_memo(meta: dict, sc: Scenario, summary: dict, position: dict, sensitiv
                f"some redemptions late in {mc_stats['p_late']:.0%}.",
                f"- 5th-percentile worst value per token: {_tok(mc_stats['value_p5'])}."]
     md += ["", "## Data", ""] + [f"- **{k}:** {v}" for k, v in data]
-    md += ["", "## Limits", "",
-           "- Reserve data are point-in-time; maturities and yields not disclosed by the issuer are assumptions.",
-           "- Liquidity and fire-sale parameters are documented judgement calls (see the Methodology page).",
-           "- The market price is a simple model of what a buyer would pay; real prices can overshoot in a panic."]
+    limits = ["Reserve data are point-in-time; maturities and yields not disclosed by the issuer are assumptions.",
+              "Liquidity and fire-sale parameters are documented judgement calls (see the Methodology page).",
+              "The market price is a simple model of what a buyer would pay; real prices can overshoot in a panic."]
+    md += ["", "## Limits", ""] + [f"- {x}" for x in limits]
     markdown = "\n".join(md) + "\n"
 
     def table(rows):
@@ -133,7 +146,8 @@ def build_memo(meta: dict, sc: Scenario, summary: dict, position: dict, sensitiv
             ("Runs", f"{mc_stats['n']}"), ("Holds", f"{mc_stats['p_holds']:.0%}"),
             ("Below par", f"{mc_stats['p_below_par']:.0%}"), ("Some redemptions late", f"{mc_stats['p_late']:.0%}"),
             ("5th-percentile value per token", _tok(mc_stats["value_p5"]))]))
-    parts += ["<h2>Data</h2>", table(data)]
+    parts += ["<h2>Data</h2>", table(data), "<h2>Limits</h2>",
+              "<ul>" + "".join(f"<li>{html.escape(x)}</li>" for x in limits) + "</ul>"]
     page = ("<!doctype html><html><head><meta charset='utf-8'><title>" + html.escape(title) + "</title><style>"
             "body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0B1324;max-width:780px;margin:40px auto;"
             "padding:0 16px;line-height:1.5}h1{font-size:1.6rem;margin-bottom:4px}h2{font-size:1.1rem;margin-top:28px;"

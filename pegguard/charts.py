@@ -55,10 +55,17 @@ def _base(fig: go.Figure, height: int = 340, title: str | None = None, legend: b
 
 
 def _money(bn: float) -> str:
-    # $bn label that switches to $m below $1bn, so small values never read "$0.00bn"
+    # $bn label that switches to $m below $1bn, so small values never read "$0.00bn" (as fmt_bn in the app)
+    if bn is None or pd.isna(bn):
+        return "n/a"
     if abs(bn) < 5e-7:
         return "$0"
     return f"${bn * 1000:,.1f}m" if abs(bn) < 1 else f"${bn:,.2f}bn"
+
+
+def _money_data(values) -> list[list[str]]:
+    # per-point money labels for hover text (one-item rows, so %{customdata[0]} works for every trace type)
+    return [[_money(float(v))] for v in values]
 
 
 def _legend_line(fig: go.Figure, name: str, color: str, dash: str = "dash") -> None:
@@ -74,8 +81,8 @@ def composition_donut(comp: pd.DataFrame, center_text: str = "") -> go.Figure:
             hole=0.62, sort=False,
             title=dict(text=center_text, position="middle center", font=dict(size=TITLE_SIZE, color=INK)),
             marker=dict(colors=comp["color"], line=dict(color="white", width=2)),
-            textinfo="none",
-            hovertemplate="<b>%{label}</b><br>$%{value:,.2f}bn<br>%{percent}<extra></extra>",
+            textinfo="none", customdata=_money_data(comp["Amount ($bn)"]),
+            hovertemplate="<b>%{label}</b><br>%{customdata[0]}<br>%{percent}<extra></extra>",
         )
     )
     # ring on the left half, legend on the right half, so neither is cut off in a narrow card
@@ -92,11 +99,12 @@ def reserves_vs_tokens(daily: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=daily["day"], y=daily["supply"], name="Tokens outstanding", mode="lines+markers",
                              line=dict(color=TOKENS, width=2, dash="dot"), marker=dict(size=6),
-                             hovertemplate="Day %{x}<br>Tokens $%{y:,.2f}bn<extra></extra>"))
+                             customdata=_money_data(daily["supply"]),
+                             hovertemplate="Day %{x}<br>Tokens %{customdata[0]}<extra></extra>"))
     fig.add_trace(go.Scatter(x=daily["day"], y=daily["reserves"], name="Reserves (marked to market)",
                              mode="lines+markers", line=dict(color=ACCENT, width=3), marker=dict(size=7),
-                             fill="tonexty", fillcolor=fill,
-                             hovertemplate="Day %{x}<br>Reserves $%{y:,.2f}bn<extra></extra>"))
+                             fill="tonexty", fillcolor=fill, customdata=_money_data(daily["reserves"]),
+                             hovertemplate="Day %{x}<br>Reserves %{customdata[0]}<extra></extra>"))
     fig = _base(fig, title="Reserves vs tokens outstanding ($bn)")
     fig.update_xaxes(title="Day", dtick=1)
     return fig
@@ -136,9 +144,9 @@ def redemptions_bars(daily: pd.DataFrame) -> go.Figure:
     d = daily[daily["day"] > 0]
     fig = go.Figure()
     fig.add_trace(go.Bar(x=d["day"], y=d["paid"], name="Paid at $1", marker_color=ACCENT,
-                         hovertemplate="Day %{x}<br>Paid $%{y:,.2f}bn<extra></extra>"))
+                         customdata=_money_data(d["paid"]), hovertemplate="Day %{x}<br>Paid %{customdata[0]}<extra></extra>"))
     fig.add_trace(go.Bar(x=d["day"], y=d["unmet"], name="Waiting (unmet)", marker_color=BAD,
-                         hovertemplate="Day %{x}<br>Unmet $%{y:,.2f}bn<extra></extra>"))
+                         customdata=_money_data(d["unmet"]), hovertemplate="Day %{x}<br>Unmet %{customdata[0]}<extra></extra>"))
     fig = _base(fig, title="Redemptions each day ($bn)")
     fig.update_layout(barmode="stack", bargap=0.35, legend_traceorder="normal")
     fig.update_xaxes(title="Day", dtick=1)
@@ -157,7 +165,8 @@ def loss_breakdown(summary: dict) -> go.Figure:
     fig = go.Figure(go.Bar(x=df["Loss"], y=df["Source"], orientation="h",
                            marker_color=["#7A4FD1", "#C77D12", "#2B59C3", BAD, "#E07A5F"],
                            text=[_money(v) for v in df["Loss"]], textposition="outside",
-                           cliponaxis=False, hovertemplate="%{y}: $%{x:,.3f}bn<extra></extra>"))
+                           cliponaxis=False, customdata=_money_data(df["Loss"]),
+                           hovertemplate="%{y}: %{customdata[0]}<extra></extra>"))
     fig = _base(fig, height=260, title="Where the losses came from", legend=False)
     fig.update_yaxes(autorange="reversed", showgrid=False)
     fig.update_xaxes(showgrid=False, showticklabels=False, range=[0, max(df["Loss"].max() * 1.5, 0.01)])
@@ -168,12 +177,20 @@ def holdings_used(by_holding: pd.DataFrame) -> go.Figure:
     d = by_holding.copy()
     fig = go.Figure()
     fig.add_trace(go.Bar(y=d["Holding"], x=d["End ($bn)"], name="Left", orientation="h", marker_color="#D5DCE6",
-                         hovertemplate="%{y}<br>Left $%{x:,.2f}bn<extra></extra>"))
+                         customdata=_money_data(d["End ($bn)"]), hovertemplate="%{y}<br>Left %{customdata[0]}<extra></extra>"))
     fig.add_trace(go.Bar(y=d["Holding"], x=d["Sold ($bn)"], name="Sold to pay redemptions", orientation="h",
-                         marker_color=ACCENT, hovertemplate="%{y}<br>Sold $%{x:,.2f}bn<extra></extra>"))
-    lost = d["Rate loss ($bn)"] + d["Price/credit loss ($bn)"] + d["Frozen ($bn)"] + d.get("Spillover loss ($bn)", 0.0)
+                         marker_color=ACCENT, customdata=_money_data(d["Sold ($bn)"]),
+                         hovertemplate="%{y}<br>Sold %{customdata[0]}<extra></extra>"))
+    # frozen cash counts only for what is written off or still frozen: once released, the recovered part is
+    # already in "Left" or "Sold"
+    if "Frozen written off ($bn)" in d:
+        frozen = d["Frozen written off ($bn)"] + d.get("Still frozen ($bn)", 0.0)
+    else:
+        frozen = d["Frozen ($bn)"]
+    lost = d["Rate loss ($bn)"] + d["Price/credit loss ($bn)"] + frozen + d.get("Spillover loss ($bn)", 0.0)
     fig.add_trace(go.Bar(y=d["Holding"], x=lost, name="Lost, frozen or marked down", orientation="h",
-                         marker_color=BAD, hovertemplate="%{y}<br>Lost/frozen $%{x:,.2f}bn<extra></extra>"))
+                         marker_color=BAD, customdata=_money_data(lost),
+                         hovertemplate="%{y}<br>Lost/frozen %{customdata[0]}<extra></extra>"))
     fig = _base(fig, height=max(240, 40 * len(d) + 90), title="What each holding did ($bn)")
     # legend in the same left-to-right order as the bars; right margin so the last tick is not cut
     fig.update_layout(barmode="stack", legend_traceorder="normal", margin=dict(r=28))
@@ -250,7 +267,8 @@ def supply_bars(df: pd.DataFrame, n: int = 10) -> go.Figure:
     d = df.head(n)
     fig = go.Figure(go.Bar(x=d["supply_usd"] / 1e9, y=d["symbol"], orientation="h", marker_color=ACCENT,
                            text=[f"${v / 1e9:,.1f}bn" for v in d["supply_usd"]], textposition="outside",
-                           cliponaxis=False, hovertemplate="%{y}: $%{x:,.2f}bn<extra></extra>"))
+                           cliponaxis=False, customdata=_money_data(d["supply_usd"] / 1e9),
+                           hovertemplate="%{y}: %{customdata[0]}<extra></extra>"))
     fig = _base(fig, height=max(220, 34 * len(d) + 60), title="Largest USD stablecoins by supply", legend=False)
     fig.update_layout(bargap=0.45)
     fig.update_yaxes(autorange="reversed", showgrid=False)

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+
 MIN_YIELD = -0.99  # guard against (1 + y) <= 0
 
 
@@ -17,16 +19,23 @@ def zero_coupon_price(y: float, t_years: float, face: float = 1.0) -> float:
 def coupon_bond_price(
     coupon_rate: float, y: float, t_years: float, freq: int = 2, face: float = 1.0
 ) -> float:
-    # Price of a plain-vanilla coupon bond (coupon quoted as APR, paid `freq` times a year).
+    # Clean price of a plain-vanilla coupon bond (coupon quoted as APR, paid `freq` times a year).
+    # Cash flows are discounted at their true times, t - k/freq, so 1.2 years does not price like 1.0;
+    # the first coupon is `f` periods away (0 < f <= 1) and the accrued part of it is taken off.
     if t_years <= 0:
         return face
-    n = max(1, round(t_years * freq))
+    periods = t_years * freq
+    n = max(1, math.ceil(periods - 1e-9))  # coupons still to come
+    f = periods - (n - 1)
     per = max(y, MIN_YIELD) / freq
     cpn = face * coupon_rate / freq
+    accrued = cpn * (1 - f)
     if abs(per) < 1e-12:
-        return cpn * n + face
+        return cpn * n + face - accrued
     annuity = (1 - (1 + per) ** -n) / per
-    return cpn * annuity + face / (1 + per) ** n
+    # value one period before the first coupon, rolled forward by the part of that period already gone
+    dirty = (cpn * annuity + face / (1 + per) ** n) * (1 + per) ** (1 - f)
+    return dirty - accrued
 
 
 def reprice_factor(kind: str, maturity_years: float, y: float, shock: float) -> float:

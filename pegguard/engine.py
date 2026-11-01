@@ -316,6 +316,8 @@ class _Book:
             "Rate loss ($bn)": self.rate_loss,
             "Price/credit loss ($bn)": self.price_loss,
             "Frozen ($bn)": self.frozen,
+            "Frozen written off ($bn)": self.frozen * (1 - self.recovery),
+            "Still frozen ($bn)": self.frozen * (0.0 if self.released else self.recovery),  # recoverable, not yet back
             "Sold ($bn)": self.sold,
             "Fire-sale loss ($bn)": self.fire_loss,
             "Spillover loss ($bn)": self.spill_loss,
@@ -488,11 +490,13 @@ def run_stress(lines: Iterable[ReserveLine], supply_bn: float, sc: Scenario) -> 
                         supply0=supply0, reserves0=reserves0)
 
 
-def redemption_capacity(lines: Iterable[ReserveLine], days: int = 5, stress_multiplier: float = 1.0,
+def redemption_capacity(lines: Iterable[ReserveLine], days: int = 5, stress_multiplier: float | None = None,
                         sc: Scenario | None = None) -> float:
-    # cash ($bn) the issuer could raise within `days`, after day-0 shocks, at the base discount (orderly market)
+    # cash ($bn) the issuer could raise within `days`, after day-0 shocks, at the base discount (orderly market).
+    # The fire-sale multiplier is `stress_multiplier` if given, else the scenario's own (1.0 with no scenario);
+    # the caller's scenario is never changed.
     sc = sc or Scenario(redemption_pct=0)
-    stressed = replace(sc, stress_multiplier=stress_multiplier)
+    stressed = sc if stress_multiplier is None else replace(sc, stress_multiplier=stress_multiplier)
     total = 0.0
     for l in lines:
         v = l.amount_bn * _rate_factor(l, sc) * _price_shock(l, sc)
