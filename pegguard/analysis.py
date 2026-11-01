@@ -245,12 +245,12 @@ def exit_timing(daily: pd.DataFrame) -> tuple[int | None, float]:
     first = float(run["new_requests"].iloc[0])
     if first <= 1e-12:
         # Nobody else is redeeming: paid on the first day the window is open, if anything can be sold that day.
+        # Nothing is sold in such a run, so that day's own liquidity (after any frozen cash is released) applies.
+        # If the window is still closed when the run ends, it opens the day after.
         open_days = run[run["open"].astype(bool)] if "open" in run else run
-        if open_days.empty:
-            return None, 0.0
-        day = int(open_days["day"].iloc[0])
-        before = daily.loc[daily["day"] == day - 1, "liquid_next_day"]
-        return (day, 1.0) if len(before) and float(before.iloc[0]) > 0 else (None, 0.0)
+        row = open_days.iloc[0] if not open_days.empty else run.iloc[-1]
+        day = int(row["day"]) if not open_days.empty else int(run["day"].iloc[-1]) + 1
+        return (day, 1.0) if float(row["liquid_next_day"]) > 0 else (None, 0.0)
     cum_paid = run["paid"].cumsum().to_numpy()
     done = np.nonzero(cum_paid >= first * (1 - 1e-9))[0]
     day_full = int(run["day"].iloc[done[0]]) if len(done) else None

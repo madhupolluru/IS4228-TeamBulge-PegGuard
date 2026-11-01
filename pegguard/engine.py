@@ -492,7 +492,7 @@ def run_stress(lines: Iterable[ReserveLine], supply_bn: float, sc: Scenario) -> 
 
 def redemption_capacity(lines: Iterable[ReserveLine], days: int = 5, stress_multiplier: float | None = None,
                         sc: Scenario | None = None) -> float:
-    # cash ($bn) the issuer could raise within `days`, after day-0 shocks, at the base discount (orderly market).
+    # cash ($bn) the issuer could raise within `days`, after day-0 shocks.
     # The fire-sale multiplier is `stress_multiplier` if given, else the scenario's own (1.0 with no scenario);
     # the caller's scenario is never changed.
     sc = sc or Scenario(redemption_pct=0)

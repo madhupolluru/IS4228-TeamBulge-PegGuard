@@ -26,6 +26,19 @@ def test_exit_waits_for_closed_window_when_nobody_else_redeems():
     assert exit_timing(run_stress(p.lines, p.supply_bn, Scenario(redemption_pct=0)).daily) == (1, 1.0)
 
 
+def test_exit_when_window_stays_closed_past_the_run():
+    p = load_preset("usdt_2026q2")
+    r = run_stress(p.lines, p.supply_bn, Scenario(redemption_pct=0, closed_days=5, horizon_days=5, rate_shock_bp=200))
+    assert exit_timing(r.daily) == (6, 1.0)
+    assert position_outcome(r.summary, r.daily, 30)["redeem_value"] > 0
+
+
+def test_exit_counts_frozen_cash_released_on_the_first_open_day():
+    lines = [ReserveLine("Cash at bank", "cash_bank", 10.0, bank="Bank A")]
+    sc = Scenario(redemption_pct=0, closed_days=2, bank_freeze_pct=100, frozen_recovery_pct=100, frozen_release_day=3)
+    assert exit_timing(run_stress(lines, 10.0, sc).daily) == (3, 1.0)
+
+
 # 2. back-test units
 
 def test_usdc_backtest_requests_the_observed_dollar_flows():

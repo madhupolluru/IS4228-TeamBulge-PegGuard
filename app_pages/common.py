@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import math
 import re
 import sys
 from functools import lru_cache
@@ -104,6 +105,8 @@ def _read_share_link() -> None:
                 v = type(default)(qp[k])
             except (TypeError, ValueError):
                 continue  # ignore a malformed value rather than failing to load the app
+            if isinstance(v, float) and not math.isfinite(v):
+                continue  # "nan" parses as a float but would pass the clamp and break the run
             if k in SC_LIMITS:
                 lo, hi = SC_LIMITS[k]
                 v = min(max(v, lo), hi)  # out-of-range values would crash the slider

@@ -19,6 +19,15 @@ def _cli(*args) -> subprocess.CompletedProcess:
                           timeout=300)
 
 
+def test_nan_in_share_link_is_ignored():
+    at = _app()
+    for k in ("sc_rate", "sc_run", "sc_stress"):
+        at.query_params[k] = "nan"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["sc_rate"] == at.session_state["sc_rate"]  # not NaN
+
+
 def test_out_of_range_share_link_is_clamped():
     at = _app()
     at.query_params["sc_rate"] = "1000"
