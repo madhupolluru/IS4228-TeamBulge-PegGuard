@@ -50,7 +50,11 @@ def preset_metrics() -> pd.DataFrame:
 metrics = preset_metrics()
 pos = position_m()
 live = bool(st.session_state.get("live_data", False))
-market, _ = market_table(live)
+market, market_meta = market_table(live)
+# where the market figures come from: bundled issuer-report figures offline, DefiLlama when fetched
+_fetched = pd.to_datetime(str(market_meta.get("as_of", ""))[:10], errors="coerce")
+market_src = ("latest issuer reports" if market_meta.get("mode") == "snapshot"
+              else "DefiLlama" + ("" if pd.isna(_fetched) else f", {_fetched:%d %b %Y}"))
 issuers = metrics[metrics["group"] == "issuer"]
 # latest real report date (hypothetical portfolios have no date)
 report_dates = pd.to_datetime(issuers["as_of"], errors="coerce").dropna()
@@ -82,7 +86,7 @@ def coin_tile(row: pd.Series) -> str:
     m = market[market["symbol"] == row["symbol"]]
     price = m["price"].iloc[0] if len(m) else float("nan")
     gap = m["peg_gap_bps"].iloc[0] if len(m) else float("nan")
-    supply = m["supply_usd"].iloc[0] / 1e9 if len(m) else row["supply_bn"]
+    supply = row["supply_bn"]  # from the same report as the date and buffer shown on the tile
     chg = m["chg_7d_pct"].iloc[0] if len(m) else float("nan")
     supply_txt = fmt_bn(supply, 1).replace("$", "&#36;") + (
         "" if pd.isna(chg) else f" <span class='pg-note'>{chg:+.1f}% 7d</span>")
@@ -117,13 +121,14 @@ with cols[-1]:
     worst = issuers.loc[issuers["worst_value"].idxmin()]
     st.markdown(
         '<div class="pg-coin"><div class="top"><div><div class="sym">Market</div>'
-        '<div class="nm">USD stablecoins tracked</div></div></div><div class="grid">'
+        f'<div class="nm">USD stablecoins tracked</div><div class="nm">{market_src}</div></div></div><div class="grid">'
         + _stat("Total supply", f"&#36;{total:,.1f}bn")
         + _stat("Coins", f"{len(market)}")
         + _stat("Weakest", worst["symbol"], "bad" if worst["worst_value"] < 0.9999 else "")
         + _stat("Worst", f"&#36;{worst['worst_value']:.3f}")
         + "</div></div>", unsafe_allow_html=True)
-st.caption(f"Buffer: reserves above tokens outstanding. Survives run: largest share of tokens that can redeem over {REF.horizon_days} days at a "
+st.caption(f"Supply and buffer: from each issuer's report, on the date shown on the tile. Market: {market_src}. "
+           f"Buffer: reserves above tokens outstanding. Survives run: largest share of tokens that can redeem over {REF.horizon_days} days at a "
            f"+{REF.rate_shock_bp:.0f}bp rate shock (fire-sale stress x{REF.stress_multiplier:.0f}) and still be paid "
            "on time at par. Your loss: your position marked at the lowest reserves per token across the five "
            "standard scenarios below.")

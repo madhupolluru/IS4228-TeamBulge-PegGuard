@@ -1,10 +1,10 @@
 {
-  "_fetched_at": "2026-06-30 (issuer reports)",
-  "_note": "Bundled snapshot built from issuer reports at 30 Jun 2026 (USDT: Tether Q2 2026 attestation liabilities; USDC: Circle 10-Q stablecoin holder deposits, which also include EURC). Run scripts/refresh_snapshot.py while online for the full live table.",
+  "_fetched_at": "2026-09-30 (issuer reports)",
+  "_note": "Bundled snapshot built from the latest issuer reports (USDT: Tether Q2 2026 attestation liabilities at 30 Jun 2026; USDC: Circle USDC Reserve Report, USDC in circulation at 30 Sep 2026). Run scripts/refresh_snapshot.py while online for the full live table.",
   "peggedAssets": [
     {"name": "Tether", "symbol": "USDT", "gecko_id": "tether", "pegType": "peggedUSD", "pegMechanism": "fiat-backed",
      "circulating": {"peggedUSD": 183640000000}, "price": null},
     {"name": "USD Coin", "symbol": "USDC", "gecko_id": "usd-coin", "pegType": "peggedUSD", "pegMechanism": "fiat-backed",
-     "circulating": {"peggedUSD": 72930000000}, "price": null}
+     "circulating": {"peggedUSD": 73878861314}, "price": null}
   ]
 }
