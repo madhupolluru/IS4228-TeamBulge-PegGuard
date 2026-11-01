@@ -57,7 +57,8 @@ with tabs[1]:
     run ends, the engine keeps paying (with no new requests) until the last deadline has passed.
 
     The issuer pays **\$1 per token** by raising cash through a **liquidity waterfall**, cheapest and fastest first:
-    cash, repo, money market fund, T-bills (shortest first), notes, gold, crypto, other investments, loans.
+    cash, repo, money market fund, T-bills (shortest first), notes, agency MBS, commercial paper, gold, crypto, other
+    investments, loans.
     Each holding can sell at most *daily liquidity × its post-shock value* per day.
 
     **Fire-sale cost grows with size (square-root price impact).** The discount on the marginal dollar sold of an asset
@@ -101,9 +102,10 @@ with tabs[2]:
       reach the day-1 requests, net of the issuer's fee, and only if you have an account and are above its minimum
       (Tether: \$100,000 minimum, 0.1% fee). *If you sell:* position × the model's market price. Your own request is
       assumed small next to the run.
-    * **What drives it.** A tornado re-runs the scenario with each judgement call halved and raised by half, and a seeded
-      Monte Carlo re-runs it a few hundred times with liquidity, fire-sale costs, impact, spillover, run size and recovery
-      drawn at random, reporting how often the coin holds.
+    * **What drives it.** A tornado re-runs the scenario with each judgement call moved to a low and a high value, one at
+      a time (most are halved and raised by half; price impact, spillover, panic and recovery run from off to strong),
+      and a seeded Monte Carlo re-runs it a few hundred times with liquidity, fire-sale costs, impact, spillover, run size
+      and recovery drawn at random, reporting how often the coin holds.
     * **Treasury Planner.** Several coins through the same five crises at once: loss on the whole treasury, cash
       raisable within a deadline, a safe cap per coin (loss budget ÷ worst haircut) and the diversification benefit.
     * **Three questions.** The Stress Lab answers: is there enough backing (coverage stays ≥ 1)? Were redemptions paid
@@ -168,7 +170,7 @@ with tabs[5]:
     * EBA final draft RTS on the liquidity of e-money token reserves (June 2024); Davis Polk on the Hong Kong
       Stablecoins Ordinance (Aug 2025); MAS, *MAS finalises stablecoin regulatory framework* (15 Aug 2023).
     * CNBC (11 Mar 2023): *Stablecoin USDC breaks dollar peg after firm reveals it has $3.3 billion in SVB exposure.*
-    * Paxos, *The GENIUS Act* (2026 summary of the July 2025 law): permitted reserve assets and 93-day bill limit.
+    * Paxos, *The GENIUS Act* (summary of the July 2025 law): permitted reserve assets and 93-day bill limit.
     * Reed Smith (Aug 2023): *Singapore stablecoin regulation: MAS confirms its framework* (100% backing, 5-business-day
       par redemption, monthly attestation).
     * Diamond, D. & Dybvig, P. (1983). Bank runs, deposit insurance, and liquidity. *Journal of Political Economy* 91(3).
