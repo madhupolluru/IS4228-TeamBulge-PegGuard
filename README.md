@@ -1,6 +1,6 @@
 # PegGuard: Stablecoin Reserve Stress Tester
 
-**Live app: STREAMLIT_APP_URL**
+**Live app: https://is4228-teambulge-pegguard.streamlit.app**
 
 *IS4228 Information Technology and Financial Services · Technical track · Team Bulge*
 
