@@ -27,7 +27,9 @@ Open the live app above. It runs in the browser, with nothing to install.
 4. **Validation** and **Methodology.** See how the model performs on real past events, and every formula and
    source behind it.
 
-Your position and portfolio are set in the sidebar and apply to every page.
+The sidebar sets the stablecoin, your position and whether you can redeem directly with the issuer. These drive
+the Stress Lab and Issuer Profile, and the Dashboard uses your position for each coin's loss. The Treasury Planner
+has its own holdings table and its own direct-redemption switch.
 
 ## Does it work?
 
