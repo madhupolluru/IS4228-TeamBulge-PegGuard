@@ -65,6 +65,8 @@ def build_scenario(a: argparse.Namespace) -> Scenario:
         v = getattr(a, k)
         if v is not None:
             values[k] = v
+            if a.scenario and v != getattr(CRISES[a.scenario.lower()], SC_FIELDS[k]):
+                name = f"Custom, based on {sc.name}"
     return Scenario(name=name, **{f: type(SC_DEFAULTS[k])(values[k]) for k, f in SC_FIELDS.items()})
 
 
@@ -106,7 +108,7 @@ def main() -> None:
     sc = build_scenario(a)
     r = run_stress(p.lines, p.supply_bn, sc)
     s = r.summary
-    print(f"\n{p.name}  |  supply ${p.supply_bn:,.2f}bn  |  reserves ${p.reserves_bn:,.2f}bn")
+    print(f"\n{p.name}  |  supply {fmt_bn(p.supply_bn)}  |  reserves {fmt_bn(p.reserves_bn)}")
     deadline = "same day" if sc.max_wait_days == 0 else f"T+{sc.max_wait_days}"
     print(f"Scenario: {sc.name}  |  {sc.rate_shock_bp:+.0f}bp, {sc.redemption_pct:.0f}% run over {sc.horizon_days} "
           f"days, bank freeze {sc.bank_freeze_pct:.0f}%, {deadline} deadline\n")
@@ -114,9 +116,10 @@ def main() -> None:
     print(f"  Lowest coverage      {s['min_coverage']:.4f}")
     print(f"  Value per token      ${s['min_token_value']:.4f}")
     print(f"  Lowest market price  ${s['min_market_price']:.4f}")
-    print(f"  Losses               ${s['total_loss']:,.3f}bn (rate {s['rate_loss']:.3f}, price {s['price_loss']:.3f}, "
-          f"frozen {s['frozen_writedown']:.3f}, fire-sale {s['fire_sale_loss']:.3f}, spillover {s['spillover_loss']:.3f})")
-    print(f"  Paid / requested     ${s['paid']:,.2f}bn / ${s['requested']:,.2f}bn, unmet ${s['unmet']:,.2f}bn")
+    print(f"  Losses               {fmt_bn(s['total_loss'], 3)} (rate {fmt_bn(s['rate_loss'], 3)}, "
+          f"price {fmt_bn(s['price_loss'], 3)}, frozen {fmt_bn(s['frozen_writedown'], 3)}, "
+          f"fire-sale {fmt_bn(s['fire_sale_loss'], 3)}, spillover {fmt_bn(s['spillover_loss'], 3)})")
+    print(f"  Paid / requested     {fmt_bn(s['paid'])} / {fmt_bn(s['requested'])}, unmet {fmt_bn(s['unmet'])}")
     print(f"  Paid late            {fmt_bn(s['late_amount'])}"
           + (f" (from day {s['first_breach_day']})" if s["first_breach_day"] is not None else ""))
     print("\nDaily path:")
