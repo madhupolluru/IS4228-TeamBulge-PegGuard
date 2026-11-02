@@ -6,7 +6,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from app_pages.common import esc, fmt_m, page_header, section, steps_list
+from app_pages.common import esc, fmt_m, page_header, section, steps_list, verdict_chip
 from pegguard import charts
 from pegguard.analysis import STANDARD_SCENARIOS
 from pegguard.presets import preset_info, redemption_terms
@@ -159,18 +159,22 @@ with st.expander("Coin by crisis detail", icon=":material/table:"):
             '<th>Suggested early exit</th><th>Cash from that exit</th></tr>']
     for r in detail.itertuples():
         if r.route == "redeem":
-            action = f"Redeem on day 1; paid on {payment_time(r.cash_day).replace('Day ', 'day ', 1)}"
+            action = f"Redeem (T+{int(r.cash_day) - 1})"
         elif r.route == "sell":
-            action = "Sell immediately"
+            action = "Sell on market (T+0)"
         else:
             action = "No modelled exit available"
         cash = fmt_m(r.cash_m) if r.route != "unavailable" else "Not available"
         html.append(f'<tr><td class="name">{escape(short[r.preset_id])}'
                     f'<div class="val">{escape(r.scenario)}</div></td>'
-                    f'<td>{escape(issuer_results[r.verdict])}</td><td>{fmt_m(r.loss_m)}</td>'
+                    f'<td title="{escape(issuer_results[r.verdict])}">{verdict_chip(r.verdict)}</td>'
+                    f'<td>{fmt_m(r.loss_m)}</td>'
                     f'<td>{escape(action)}</td><td>{cash}</td></tr>')
     html.append("</table></div>")
     st.markdown("".join(html).replace("$", "&#36;"), unsafe_allow_html=True)
+    st.caption("Redeem = return tokens to the issuer for cash. Sell on market = sell tokens to another buyer. "
+               "T+0 means same-day cash; T+1 means cash the next simulation day. "
+               "Hover over an issuer result for its meaning.")
     st.caption("Reserve shortfall = your holding × the worst reserve-backing shortfall in the scenario. "
                "It is not a guaranteed realised loss. Issuer payment deadlines come from each standard crisis; "
                "your cash deadline above determines which early exits are feasible.")
@@ -186,10 +190,10 @@ with st.expander("Coin by crisis detail", icon=":material/table:"):
                         and math.isfinite(row["redeem_day"]) and math.isfinite(row["redeem_cash_m"]))
     sell_known = pd.notna(row["sell_cash_m"]) and math.isfinite(row["sell_cash_m"])
     options = [
-        {"Exit option": "Sell immediately", "Modelled proceeds": fmt_m(row["sell_cash_m"]) if sell_known else "Not available",
+        {"Exit option": "Sell on market", "Modelled proceeds": fmt_m(row["sell_cash_m"]) if sell_known else "Not available",
          "When available": "Immediately (T+0)" if sell_known else "No modelled price",
          "Meets your cash deadline?": "Yes" if sell_known else "No"},
-        {"Exit option": "Request redemption on day 1",
+        {"Exit option": "Redeem with issuer",
          "Modelled proceeds": fmt_m(row["redeem_cash_m"]) if redeem_known else "Not available",
          "When available": payment_time(row["redeem_day"]) if row["can_redeem"] else "No access or below minimum",
          "Meets your cash deadline?": "Yes" if row["redeem_in_time"] else "No"},

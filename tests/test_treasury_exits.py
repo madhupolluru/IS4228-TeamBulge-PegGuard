@@ -89,11 +89,14 @@ def test_scorecard_renders_matching_sale_proceeds_and_deadline_context():
     table = next(m.value for m in at.markdown if "Cash from that exit</th>" in m.value)
     calm_usdt = next(row for row in table.split("<tr>")
                      if '>USDT<' in row and "Calm: normal redemptions" in row)
-    assert "Sell immediately" in calm_usdt and "&#36;30.00m" in calm_usdt
+    assert "Sell on market (T+0)" in calm_usdt and "&#36;30.00m" in calm_usdt
     assert "&#36;29.97m" not in calm_usdt
+    assert ">HOLDS</span>" in calm_usdt
+    assert "Redeem (T+0)" in table and "Redeem (T+1)" in table
     at.select_slider(key="tr_days").set_value(0).run()
     assert not at.exception
     table = next(m.value for m in at.markdown if "Cash from that exit</th>" in m.value)
     panic_usdt = next(row for row in table.split("<tr>") if '>USDT<' in row and "Full panic" in row)
-    assert "Sell immediately" in panic_usdt and "&#36;29.16m" in panic_usdt
+    assert "Sell on market (T+0)" in panic_usdt and "&#36;29.16m" in panic_usdt
+    assert ">BREAKS</span>" in panic_usdt
     assert any("Cash deadline: Same day (T+0)" in c.value for c in at.caption)
