@@ -1,11 +1,12 @@
 # Treasury Planner: how should a treasury split its stablecoin float, and how much of each coin is safe?
 
 import math
+from html import escape
 
 import pandas as pd
 import streamlit as st
 
-from app_pages.common import esc, fmt_m, page_header, section, steps_list, verdict_chip
+from app_pages.common import esc, fmt_m, page_header, section, steps_list
 from pegguard import charts
 from pegguard.analysis import STANDARD_SCENARIOS
 from pegguard.presets import preset_info, redemption_terms
@@ -82,7 +83,7 @@ budget_m = total * budget_bp / 1e4
 
 
 @st.cache_data(show_spinner="Stress-testing the treasury...")
-def run(hs: tuple, days: int, direct: bool) -> pd.DataFrame:
+def run_scorecard(hs: tuple, days: int, direct: bool) -> pd.DataFrame:
     return stress_treasury([Holding(p, a) for p, a in hs], STANDARD_SCENARIOS, liquidity_days=days,
                            direct_access=direct)
 
@@ -92,7 +93,7 @@ def caps(pids: tuple, total: float, bp: float) -> pd.DataFrame:
     return safe_caps(list(pids), total, bp)
 
 
-detail = run(tuple((h.preset_id, h.amount_m) for h in holdings), need_days, direct)
+detail = run_scorecard(tuple((h.preset_id, h.amount_m) for h in holdings), need_days, direct)
 summ = treasury_summary(detail, total, budget_bp)
 
 st.divider()
@@ -133,16 +134,68 @@ with c2:
                "of that coin alone and still stay within budget.")
 
 with st.expander("Coin by crisis detail", icon=":material/table:"):
-    d = detail.copy()
-    d["Coin"] = d["preset_id"].map(short)
-    html = ['<table class="pg-table"><tr><th>Coin</th><th>Crisis</th><th>Verdict</th><th>Loss if held</th>'
-            '<th>Cash in time</th><th>Exit route</th></tr>']
-    for r in d.itertuples():
-        html.append(f'<tr><td class="name">{r.Coin}</td><td>{r.scenario}</td><td>{verdict_chip(r.verdict)}</td>'
-                    f'<td>{fmt_m(r.loss_m)}</td><td>{fmt_m(r.cash_m)}</td>'
-                    f'<td>{"Redeem" if r.route == "redeem" else "Sell"}</td></tr>')
-    html.append("</table>")
+    deadline = "Same day (T+0)" if need_days == 0 else f"T+{need_days}"
+    holdings_label = ", ".join(f"{short[h.preset_id]} {fmt_m(h.amount_m)}" for h in holdings)
+    st.markdown(esc(f"**Your holdings:** {holdings_label}"))
+    st.caption(f"Cash deadline: {deadline}. Direct redemption accounts: {'enabled' if direct else 'disabled'}.")
+    st.write("The issuer's result covers the whole crisis. Your holding shortfall and early-exit cash describe "
+             "alternative choices: staying invested or exiting at the start.")
+
+    issuer_results = {
+        "HOLDS": "Backing maintained; payments on time",
+        "BELOW PAR": "Backing shortfall; payments on time",
+        "LIQUIDITY STRAIN": "Backing maintained; some payments late",
+        "BREAKS": "Backing shortfall; some payments late",
+    }
+
+    def payment_time(day) -> str:
+        if pd.isna(day):
+            return "Full payment not reached in the simulation"
+        day = int(day)
+        return f"Day {day} ({'same day, T+0' if day == 1 else f'T+{day - 1}'})"
+
+    html = ['<div style="overflow-x:auto"><table class="pg-table"><tr><th>Coin / crisis</th>'
+            '<th>Issuer’s stress result</th><th>Reserve shortfall on your holding</th>'
+            '<th>Suggested early exit</th><th>Cash from that exit</th></tr>']
+    for r in detail.itertuples():
+        if r.route == "redeem":
+            action = f"Redeem on day 1; paid on {payment_time(r.cash_day).replace('Day ', 'day ', 1)}"
+        elif r.route == "sell":
+            action = "Sell immediately"
+        else:
+            action = "No modelled exit available"
+        cash = fmt_m(r.cash_m) if r.route != "unavailable" else "Not available"
+        html.append(f'<tr><td class="name">{escape(short[r.preset_id])}'
+                    f'<div class="val">{escape(r.scenario)}</div></td>'
+                    f'<td>{escape(issuer_results[r.verdict])}</td><td>{fmt_m(r.loss_m)}</td>'
+                    f'<td>{escape(action)}</td><td>{cash}</td></tr>')
+    html.append("</table></div>")
     st.markdown("".join(html).replace("$", "&#36;"), unsafe_allow_html=True)
+    st.caption("Reserve shortfall = your holding × the worst reserve-backing shortfall in the scenario. "
+               "It is not a guaranteed realised loss. Issuer payment deadlines come from each standard crisis; "
+               "your cash deadline above determines which early exits are feasible.")
+    st.caption("Redemption is requested on day 1 (T+0); day 2 is T+1. The model assumes your request is small "
+               "relative to the run. Sale proceeds use the model's immediate price with no exchange fees or "
+               "slippage; redemption proceeds include the issuer fee assumed by the model.")
+
+    st.markdown("**Compare exit options**")
+    selected = st.selectbox("Coin and crisis", options=list(range(len(detail))),
+                            format_func=lambda i: f"{short[detail.iloc[i]['preset_id']]} — {detail.iloc[i]['scenario']}")
+    row = detail.iloc[selected]
+    redeem_known = bool(row["can_redeem"] and pd.notna(row["redeem_day"])
+                        and math.isfinite(row["redeem_day"]) and math.isfinite(row["redeem_cash_m"]))
+    sell_known = pd.notna(row["sell_cash_m"]) and math.isfinite(row["sell_cash_m"])
+    options = [
+        {"Exit option": "Sell immediately", "Modelled proceeds": fmt_m(row["sell_cash_m"]) if sell_known else "Not available",
+         "When available": "Immediately (T+0)" if sell_known else "No modelled price",
+         "Meets your cash deadline?": "Yes" if sell_known else "No"},
+        {"Exit option": "Request redemption on day 1",
+         "Modelled proceeds": fmt_m(row["redeem_cash_m"]) if redeem_known else "Not available",
+         "When available": payment_time(row["redeem_day"]) if row["can_redeem"] else "No access or below minimum",
+         "Meets your cash deadline?": "Yes" if row["redeem_in_time"] else "No"},
+    ]
+    st.dataframe(pd.DataFrame(options), hide_index=True, width="stretch")
+    st.caption(row["exit_reason"])
 
 section("Redemption terms used", "Access")
 steps_list([f"**{names[pid]}:** " + redemption_terms(pid)["note"] for pid in agg])
