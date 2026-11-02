@@ -135,12 +135,13 @@ with c2:
 
 with st.expander("Coin by crisis detail", icon=":material/table:"):
     deadline = "Same day (T+0)" if need_days == 0 else f"T+{need_days}"
-    holdings_label = ", ".join(f"{short[h.preset_id]} {fmt_m(h.amount_m)}" for h in holdings)
-    st.markdown(esc(f"**Your holdings:** {holdings_label}"))
-    st.caption(f"Cash deadline: {deadline}. Direct redemption accounts: {'enabled' if direct else 'disabled'}.")
-    st.write("The issuer's result covers the whole crisis. Your holding shortfall and early-exit cash describe "
-             "alternative choices: staying invested or exiting at the start.")
-
+    coin_ids = list(agg)
+    if st.session_state.get("scorecard_coin") not in coin_ids:
+        st.session_state["scorecard_coin"] = "usdt_2026q2" if "usdt_2026q2" in coin_ids else coin_ids[0]
+    coin = st.selectbox("Which coin are you looking at?", options=coin_ids, key="scorecard_coin",
+                        format_func=lambda pid: f"{short[pid]} — holding {fmt_m(agg[pid])}")
+    coin_detail = detail[detail["preset_id"] == coin].reset_index(drop=True)
+    st.write("Two alternative choices: keep holding through the crisis, or start an exit when it begins.")
     issuer_results = {
         "HOLDS": "Backing maintained; payments on time",
         "BELOW PAR": "Backing shortfall; payments on time",
@@ -148,58 +149,118 @@ with st.expander("Coin by crisis detail", icon=":material/table:"):
         "BREAKS": "Backing shortfall; some payments late",
     }
 
+    def known(value) -> bool:
+        return pd.notna(value) and math.isfinite(value)
+
     def payment_time(day) -> str:
-        if pd.isna(day):
-            return "Full payment not reached in the simulation"
+        if not known(day):
+            return "Full payment not reached"
         day = int(day)
-        return f"Day {day} ({'same day, T+0' if day == 1 else f'T+{day - 1}'})"
+        return "T+0 · same day" if day == 1 else f"T+{day - 1}"
 
-    html = ['<div style="overflow-x:auto"><table class="pg-table"><tr><th>Coin / crisis</th>'
-            '<th>Issuer’s stress result</th><th>Reserve shortfall on your holding</th>'
-            '<th>Suggested early exit</th><th>Cash from that exit</th></tr>']
-    for r in detail.itertuples():
+    def exit_comparison(r) -> tuple[str, str]:
+        both = bool(r.redeem_in_time and known(r.sell_cash_m))
+        if both and abs(r.redeem_cash_m - r.sell_cash_m) <= 1e-9:
+            return "Same cash", "Both meet your deadline; compare the payment times."
+        if both:
+            advantage = abs(r.redeem_cash_m - r.sell_cash_m)
+            route = "Redeem" if r.route == "redeem" else "Sell on market"
+            advantage_dollars = advantage * 1e6
+            amount = f"${advantage_dollars:,.0f}" if advantage_dollars >= 1 else f"${advantage_dollars:.2f}"
+            return route, f"{amount} more cash"
         if r.route == "redeem":
-            action = f"Redeem (T+{int(r.cash_day) - 1})"
-        elif r.route == "sell":
-            action = "Sell on market (T+0)"
-        else:
-            action = "No modelled exit available"
-        cash = fmt_m(r.cash_m) if r.route != "unavailable" else "Not available"
-        html.append(f'<tr><td class="name">{escape(short[r.preset_id])}'
-                    f'<div class="val">{escape(r.scenario)}</div></td>'
-                    f'<td title="{escape(issuer_results[r.verdict])}">{verdict_chip(r.verdict)}</td>'
-                    f'<td>{fmt_m(r.loss_m)}</td>'
-                    f'<td>{escape(action)}</td><td>{cash}</td></tr>')
-    html.append("</table></div>")
-    st.markdown("".join(html).replace("$", "&#36;"), unsafe_allow_html=True)
-    st.caption("Redeem = return tokens to the issuer for cash. Sell on market = sell tokens to another buyer. "
-               "T+0 means same-day cash; T+1 means cash the next simulation day. "
-               "Hover over an issuer result for its meaning.")
-    st.caption("Reserve shortfall = your holding × the worst reserve-backing shortfall in the scenario. "
-               "It is not a guaranteed realised loss. Issuer payment deadlines come from each standard crisis; "
-               "your cash deadline above determines which early exits are feasible.")
-    st.caption("Redemption is requested on day 1 (T+0); day 2 is T+1. The model assumes your request is small "
-               "relative to the run. Sale proceeds use the model's immediate price with no exchange fees or "
-               "slippage; redemption proceeds include the issuer fee assumed by the model.")
+            return "Redeem", "Only available route by your deadline"
+        if r.route == "sell":
+            return "Sell on market", "Only available route by your deadline"
+        return "No full exit", "Neither route provides full exit proceeds by your deadline"
 
-    st.markdown("**Compare exit options**")
-    selected = st.selectbox("Coin and crisis", options=list(range(len(detail))),
-                            format_func=lambda i: f"{short[detail.iloc[i]['preset_id']]} — {detail.iloc[i]['scenario']}")
-    row = detail.iloc[selected]
-    redeem_known = bool(row["can_redeem"] and pd.notna(row["redeem_day"])
-                        and math.isfinite(row["redeem_day"]) and math.isfinite(row["redeem_cash_m"]))
-    sell_known = pd.notna(row["sell_cash_m"]) and math.isfinite(row["sell_cash_m"])
-    options = [
-        {"Exit option": "Sell on market", "Modelled proceeds": fmt_m(row["sell_cash_m"]) if sell_known else "Not available",
-         "When available": "Immediately (T+0)" if sell_known else "No modelled price",
-         "Meets your cash deadline?": "Yes" if sell_known else "No"},
-        {"Exit option": "Redeem with issuer",
-         "Modelled proceeds": fmt_m(row["redeem_cash_m"]) if redeem_known else "Not available",
-         "When available": payment_time(row["redeem_day"]) if row["can_redeem"] else "No access or below minimum",
-         "Meets your cash deadline?": "Yes" if row["redeem_in_time"] else "No"},
-    ]
-    st.dataframe(pd.DataFrame(options), hide_index=True, width="stretch")
-    st.caption(row["exit_reason"])
+    def table_cell(main: str, note: str = "") -> str:
+        return f'<td><b>{escape(main)}</b><div class="val">{escape(note)}</div></td>'
+
+    hold_tab, exit_tab = st.tabs(["Keep holding", "Exit at the start"])
+    with hold_tab:
+        st.markdown("**How well is your holding backed at the worst point?**")
+        st.caption("A backing gap measures missing reserve support. It is not a market selling price or a realised cash loss.")
+        html = ['<div style="overflow-x:auto"><table class="pg-table"><tr><th>Crisis</th>'
+                '<th>Issuer’s stress result</th><th>Backing per $1 held</th><th>Backing gap on your holding</th></tr>']
+        for r in coin_detail.itertuples():
+            backing = f"${r.token_value:.4f}" if known(r.token_value) else "Not available"
+            gap = fmt_m(r.loss_m) if known(r.token_value) else "Not available"
+            html.append(f'<tr><td class="name">{escape(r.scenario)}</td>'
+                        f'<td title="{escape(issuer_results[r.verdict])}">{verdict_chip(r.verdict)}</td>'
+                        + table_cell(backing) + table_cell(gap) + '</tr>')
+        html.append("</table></div>")
+        st.markdown("".join(html).replace("$", "&#36;"), unsafe_allow_html=True)
+        st.caption(esc("Backing is shown up to $1 per $1 held; surplus reserves are excluded. "
+                       "Hover over a verdict for its meaning. The verdict covers the issuer's whole crisis."))
+
+    with exit_tab:
+        st.markdown("**How much cash could you receive if you act at the start?**")
+        st.caption(f"Your cash deadline: {deadline}. Direct redemption accounts: {'enabled' if direct else 'disabled'}.")
+        st.write("**Sell on market:** another buyer buys your tokens. "
+                 "**Redeem:** return your tokens to the issuer for cash.")
+        html = ['<div style="overflow-x:auto"><table class="pg-table"><tr><th>Crisis</th>'
+                '<th>Sell on market</th><th>Redeem with issuer</th><th>Most cash by your deadline</th></tr>']
+        for r in coin_detail.itertuples():
+            sell_cash = fmt_m(r.sell_cash_m) if known(r.sell_cash_m) else "Not available"
+            sell_note = "T+0 · immediately" if known(r.sell_cash_m) else "No modelled sale price"
+            if not r.can_redeem:
+                redeem_cash, redeem_note = "Not available", "No access or below minimum"
+            elif not known(r.redeem_day):
+                redeem_cash, redeem_note = "Not available", "Full payment not reached"
+            elif not known(r.redeem_cash_m):
+                redeem_cash, redeem_note = "Not available", "No modelled proceeds"
+            else:
+                redeem_cash, redeem_note = fmt_m(r.redeem_cash_m), payment_time(r.redeem_day)
+                if not r.redeem_in_time:
+                    redeem_note += " · after your deadline"
+            choice, reason = exit_comparison(r)
+            html.append(f'<tr><td class="name">{escape(r.scenario)}</td>'
+                        + table_cell(sell_cash, sell_note) + table_cell(redeem_cash, redeem_note)
+                        + table_cell(choice, reason) + '</tr>')
+        html.append("</table></div>")
+        st.markdown("".join(html).replace("$", "&#36;"), unsafe_allow_html=True)
+        st.caption("These are modelled cash amounts. Do not subtract the holding view's backing gap from them. "
+                   "T+0 means same day; T+1 means the next simulation day.")
+        st.caption("Timing follows simulated issuer liquidity; bank processing and settlement are not separately modelled. "
+                   "Redemption fees are included; market trading fees and slippage are excluded.")
+
+    with st.expander("Explain the numbers for one crisis"):
+        scenario = st.selectbox("Crisis to explain", options=list(range(len(coin_detail))),
+                                format_func=lambda i: coin_detail.iloc[i]["scenario"],
+                                key="scorecard_explain_crisis")
+        r = next(coin_detail.iloc[[scenario]].itertuples())
+        if known(r.token_value):
+            st.markdown(esc(f"**If you keep holding:** {fmt_m(r.amount_m)} × the worst backing gap of "
+                            f"{r.loss_m / r.amount_m:.2%} = **{fmt_m(r.loss_m)}** of missing reserve backing."))
+        else:
+            st.markdown("**If you keep holding:** reserve backing is not available for this scenario.")
+        st.caption(esc("This uses the lowest reserve backing during the whole crisis, capped at $1 per $1 held."))
+        if known(r.sell_cash_m):
+            st.markdown(esc(f"**If you sell at the start:** the model values each $1 of your holding at "
+                            f"${r.sell_cash_m / r.amount_m:.5f}, giving **{fmt_m(r.sell_cash_m)}**."))
+            st.caption("That is the model's starting sale price after the initial shock, not its worst market price.")
+        if r.can_redeem and known(r.redeem_day) and known(r.redeem_cash_m):
+            st.markdown(esc(f"**If you request redemption at the start:** {fmt_m(r.amount_m)} minus "
+                            f"{fmt_m(r.redeem_fee_m)} in assumed fees = **{fmt_m(r.redeem_cash_m)}**, "
+                            f"paid {payment_time(r.redeem_day)} in the simulation."))
+        else:
+            st.markdown("**Redemption:** a full payment is not available under this scenario and your access settings.")
+        choice, reason = exit_comparison(r)
+        st.markdown(esc(f"**Cash comparison: {choice}.** {reason}"))
+        st.caption("Early redemption requests can be paid at $1 even if backing later falls below par. "
+                   "The model assumes you request at T+0 and your holding is small relative to the run.")
+
+    with st.expander("Model assumptions and verdict definitions"):
+        st.write("The two views are alternative strategies. Missing backing while holding and cash from an early exit "
+                 "are not added together. The cash comparison selects the higher proceeds among full exits that meet your deadline.")
+        st.write("The model assumes redemption at $1 less the preset fee, subject to access and simulated liquidity. "
+                 "USDC's zero fee assumes a free redemption service; T+0 is a simulation result, not a guarantee "
+                 "of free same-day bank settlement. Service processing times are not separately modelled.")
+        st.write("Market sales use a simulated price at the start, after the initial shock. They assume immediate "
+                 "execution and exclude trading fees and slippage. Cash figures use the project's dollar-equivalent holdings.")
+        for verdict, meaning in issuer_results.items():
+            st.markdown(f"**{verdict}:** {meaning}.")
 
 section("Redemption terms used", "Access")
 steps_list([f"**{names[pid]}:** " + redemption_terms(pid)["note"] for pid in agg])

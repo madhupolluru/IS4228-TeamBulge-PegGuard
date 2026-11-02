@@ -86,17 +86,32 @@ def test_scorecard_renders_matching_sale_proceeds_and_deadline_context():
     at = AppTest.from_file("app.py", default_timeout=300).run()
     at.switch_page("app_pages/treasury.py").run()
     assert not at.exception
-    table = next(m.value for m in at.markdown if "Cash from that exit</th>" in m.value)
-    calm_usdt = next(row for row in table.split("<tr>")
-                     if '>USDT<' in row and "Calm: normal redemptions" in row)
-    assert "Sell on market (T+0)" in calm_usdt and "&#36;30.00m" in calm_usdt
-    assert "&#36;29.97m" not in calm_usdt
-    assert ">HOLDS</span>" in calm_usdt
-    assert "Redeem (T+0)" in table and "Redeem (T+1)" in table
+
+    def table(header):
+        return next(m.value for m in at.markdown if f"{header}</th>" in m.value)
+
+    def row_for(html, crisis):
+        return next(row for row in html.split("<tr>") if crisis in row)
+
+    assert [tab.label for tab in at.tabs] == ["Keep holding", "Exit at the start"]
+    held = row_for(table("Backing gap on your holding"), "Crypto crash")
+    assert ">BELOW PAR</span>" in held and "&#36;1.17m" in held and "&#36;0.9611" in held
+    exits = table("Most cash by your deadline")
+    calm_usdt = row_for(exits, "Calm: normal redemptions")
+    assert "Sell on market" in calm_usdt and "&#36;30.00m" in calm_usdt and "&#36;29.97m" in calm_usdt
+    crypto_usdt = row_for(exits, "Crypto crash")
+    assert "&#36;29.23m" in crypto_usdt and "&#36;29.97m" in crypto_usdt and ">Redeem</b>" in crypto_usdt
+    assert "&#36;1.17m" not in exits
     at.select_slider(key="tr_days").set_value(0).run()
     assert not at.exception
-    table = next(m.value for m in at.markdown if "Cash from that exit</th>" in m.value)
-    panic_usdt = next(row for row in table.split("<tr>") if '>USDT<' in row and "Full panic" in row)
-    assert "Sell on market (T+0)" in panic_usdt and "&#36;29.16m" in panic_usdt
-    assert ">BREAKS</span>" in panic_usdt
-    assert any("Cash deadline: Same day (T+0)" in c.value for c in at.caption)
+    panic_usdt = row_for(table("Most cash by your deadline"), "Full panic")
+    assert "Sell on market" in panic_usdt and "&#36;29.16m" in panic_usdt
+    assert "T+1 · after your deadline" in panic_usdt
+    assert any("Your cash deadline: Same day (T+0)" in c.value for c in at.caption)
+    at.selectbox(key="scorecard_coin").select("usdc_2026_09").run()
+    assert not at.exception
+    assert "Same cash" in row_for(table("Most cash by your deadline"), "Calm")
+    at.toggle(key="tr_direct").set_value(False).run()
+    assert not at.exception
+    no_access = table("Most cash by your deadline")
+    assert "No access or below minimum" in no_access and "Same cash" not in no_access
