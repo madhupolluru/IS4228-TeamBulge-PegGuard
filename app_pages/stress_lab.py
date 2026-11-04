@@ -398,29 +398,30 @@ with tab_run:
     st.markdown(sensitivity_table().replace("$", "&#36;"), unsafe_allow_html=True)
 
     st.write("")
-    section("Take it to your risk committee", "Export")
-    memo = build_memo(meta, sc, s, out, sensitivity=sens, tornado=tor, mc_stats=mc)
-    summary_row = pd.DataFrame([{
-        "portfolio": meta["name"], "data_basis": meta.get("basis", ""), **sc.to_dict(),
-        **{k: v for k, v in s.items() if k != "headline"},
-        "position_m": pos, "position_loss_m": out["hold_loss"], "position_exit_day": out["exit_day"],
-        "position_best_route": out["best_route"], "position_sell_now_m": out["sell_now_value"],
-    }])
-    x = st.columns(4)
-    x[0].download_button("Memo (HTML)", memo["html"], file_name="pegguard_risk_memo.html", mime="text/html",
-                         icon=":material/description:", type="primary", width="stretch",
-                         help="Open it in a browser and print to PDF")
-    x[1].download_button("Memo (Markdown)", memo["markdown"], file_name="pegguard_risk_memo.md",
-                         mime="text/markdown", icon=":material/article:", width="stretch")
-    x[2].download_button("Day-by-day CSV", result.daily.to_csv(index=False), file_name="pegguard_stress_run.csv",
-                         mime="text/csv", icon=":material/download:", width="stretch")
-    x[3].download_button("Summary CSV", summary_row.to_csv(index=False), file_name="pegguard_scenario_summary.csv",
-                         mime="text/csv", icon=":material/download:", width="stretch",
-                         help="Settings, results and your position in one row")
-    st.caption("To share this exact scenario, copy the address bar: it holds the coin, every slider, your position "
-               "and whether you can redeem directly with the issuer."
-               + (" It cannot hold your reserve edits: whoever opens it sees the coin's published reserves."
-                  if meta.get("edited") else ""))
+    # collapsed so the results read without it; the memo and CSVs are still one click away
+    with st.expander("Export a risk memo or share this scenario", icon=":material/download:"):
+        memo = build_memo(meta, sc, s, out, sensitivity=sens, tornado=tor, mc_stats=mc)
+        summary_row = pd.DataFrame([{
+            "portfolio": meta["name"], "data_basis": meta.get("basis", ""), **sc.to_dict(),
+            **{k: v for k, v in s.items() if k != "headline"},
+            "position_m": pos, "position_loss_m": out["hold_loss"], "position_exit_day": out["exit_day"],
+            "position_best_route": out["best_route"], "position_sell_now_m": out["sell_now_value"],
+        }])
+        x = st.columns(4)
+        x[0].download_button("Memo (HTML)", memo["html"], file_name="pegguard_risk_memo.html", mime="text/html",
+                             icon=":material/description:", type="primary", width="stretch",
+                             help="Open it in a browser and print to PDF")
+        x[1].download_button("Memo (Markdown)", memo["markdown"], file_name="pegguard_risk_memo.md",
+                             mime="text/markdown", icon=":material/article:", width="stretch")
+        x[2].download_button("Day-by-day CSV", result.daily.to_csv(index=False), file_name="pegguard_stress_run.csv",
+                             mime="text/csv", icon=":material/download:", width="stretch")
+        x[3].download_button("Summary CSV", summary_row.to_csv(index=False), file_name="pegguard_scenario_summary.csv",
+                             mime="text/csv", icon=":material/download:", width="stretch",
+                             help="Settings, results and your position in one row")
+        st.caption("To share this exact scenario, copy the address bar: it holds the coin, every slider, your position "
+                   "and whether you can redeem directly with the issuer."
+                   + (" It cannot hold your reserve edits: whoever opens it sees the coin's published reserves."
+                      if meta.get("edited") else ""))
 
     with st.expander("Day-by-day table", icon=":material/table:"):
         show = result.daily.rename(columns={
