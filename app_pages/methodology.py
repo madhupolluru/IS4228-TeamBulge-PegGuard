@@ -107,7 +107,7 @@ with tabs[2]:
       and a seeded Monte Carlo re-runs it a few hundred times with liquidity, fire-sale costs, impact, spillover, run size
       and recovery drawn at random, reporting how often the coin holds.
     * **Treasury Planner.** Several coins through the same five crises at once: loss on the whole treasury, cash
-      raisable within a deadline, a safe cap per coin (loss budget ÷ worst haircut) and the diversification benefit.
+      raisable within a deadline (redeeming or selling, whichever pays more in time), a safe cap per coin (loss budget ÷ worst haircut) and the diversification benefit.
     * **Three questions.** The Stress Lab answers: is there enough backing (coverage stays ≥ 1)? Were redemptions paid
       within the deadline? What does it mean for your position?
     * **Sensitivity.** The same scenario is re-run at fire-sale stress ×1, ×2, ×3 and ×5 (plus your own setting) and shown
