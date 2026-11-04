@@ -62,11 +62,6 @@ def select_exit(out: dict, days: int) -> dict:
             "redeem_in_time": redeem_ok, "exit_reason": reason}
 
 
-def cash_by(out: dict, days: int, closed: int = 0) -> float:
-    # Keep the cash summary consistent with the route shown in the scorecard.
-    return select_exit(out, days)["cash_m"]
-
-
 def stress_treasury(holdings: list[Holding], scenarios: list[Scenario] | None = None,
                     liquidity_days: int = 2, direct_access: bool = True) -> pd.DataFrame:
     # One row per (holding, crisis): verdict, loss if held, cash available within `liquidity_days`.
